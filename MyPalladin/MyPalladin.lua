@@ -1,6 +1,8 @@
 local addonName, addon = ...
-local panel, heading, focus, preparation, mana
-local cards, buttons = {}, {}
+local panel, heading, focus, preparation, mana, manaLabel, mode, footer, reference, empty
+local cards, buttons, buffLabels = {}, {}, {}
+local learnedCount = 0
+local Layout
 
 local function Say(message)
     print("|cffffca65My Palladin:|r " .. message)
@@ -8,8 +10,33 @@ end
 
 local function UpdateMana()
     -- Forward combat values to native widgets without calculating or comparing them.
-    mana:SetMinMaxValues(0, UnitPowerMax("player", 0))
-    mana:SetValue(UnitPower("player", 0))
+    local current, maximum = UnitPower("player", 0), UnitPowerMax("player", 0)
+    mana:SetMinMaxValues(0, maximum)
+    mana:SetValue(current)
+    local text, low = addon.GetManaText(current, maximum)
+    manaLabel:SetText(text)
+    if low then
+        mana:SetStatusBarColor(0.85, 0.3, 0.08)
+    else
+        mana:SetStatusBarColor(0.12, 0.4, 0.9)
+    end
+end
+
+local function UpdateBuffs()
+    for index, group in ipairs(addon.buffGroups) do
+        local status, name = addon.GetBuffStatus(group)
+        local label = buffLabels[index]
+        if status == "active" then
+            label:SetText(group.label .. ": " .. name)
+            label:SetTextColor(0.4, 1, 0.4)
+        elseif status == "missing" then
+            label:SetText(group.label .. ": Missing")
+            label:SetTextColor(1, 0.5, 0.2)
+        else
+            label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
+            label:SetTextColor(0.7, 0.7, 0.7)
+        end
+    end
 end
 
 local function UpdateCooldowns()
@@ -44,19 +71,30 @@ local function RefreshProfile()
             button:Enable()
         end
     end
-    for index, name in ipairs(profile.spells) do
-        local card = cards[index]
+    learnedCount = 0
+    for _, name in ipairs(profile.spells) do
         local slot, bank = C_SpellBook.FindSpellBookSlotForSpell(name)
         local info = slot and C_SpellBook.GetSpellBookItemInfo(slot, bank)
-        card.spellID = info and info.spellID
-        card.label:SetText(name)
-        card.icon:SetTexture(info and info.iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
-        card.icon:SetDesaturated(not card.spellID)
-        card.cooldown:Clear()
-        card.status:SetText(card.spellID and "" or "Not learned")
+        if info and info.spellID then
+            learnedCount = learnedCount + 1
+            local card = cards[learnedCount]
+            card.spellID = info.spellID
+            card.label:SetText(name)
+            card.icon:SetTexture(info.iconID)
+            card.cooldown:Clear()
+            card.status:SetText("")
+            card:Show()
+        end
     end
+    for index = learnedCount + 1, #cards do
+        cards[index].spellID = nil
+        cards[index].cooldown:Clear()
+        cards[index]:Hide()
+    end
+    Layout()
     UpdateCooldowns()
     UpdateMana()
+    UpdateBuffs()
 end
 
 local function ChooseProfile(id)
@@ -76,9 +114,48 @@ local function Text(parent, font, x, y, width)
     return text
 end
 
+Layout = function()
+    local compact = addon.db.compact
+    local buffY = compact and 104 or 152
+    local manaY = buffY + 38
+    local cardsY = manaY + 32
+    local rowHeight = compact and 44 or 50
+    local rows = math.max(1, math.ceil(learnedCount / 2))
+    local afterCards = cardsY + rows * rowHeight
+    mode:SetText(compact and "Expand" or "Compact")
+    focus:SetShown(not compact)
+    preparation:SetShown(not compact)
+    for index, label in ipairs(buffLabels) do
+        label:ClearAllPoints()
+        label:SetPoint("TOPLEFT", 16 + (index - 1) * 132, -buffY)
+    end
+    mana:ClearAllPoints()
+    mana:SetPoint("TOPLEFT", 16, -manaY)
+    for index, card in ipairs(cards) do
+        card:ClearAllPoints()
+        card:SetPoint("TOPLEFT", 16 + ((index - 1) % 2) * 200, -cardsY - math.floor((index - 1) / 2) * rowHeight)
+    end
+    empty:ClearAllPoints()
+    empty:SetPoint("TOPLEFT", 16, -cardsY)
+    empty:SetShown(learnedCount == 0)
+    preparation:ClearAllPoints()
+    preparation:SetPoint("TOPLEFT", 16, -afterCards - 8)
+    local footerY = afterCards + (compact and 8 or 58)
+    footer:ClearAllPoints()
+    footer:SetPoint("TOPLEFT", 16, -footerY)
+    footer:SetText(compact and "Drag to move | /mp to toggle" or "Cooldowns only; choose your actions. Drag to move. /mp to toggle.")
+    reference:ClearAllPoints()
+    reference:SetPoint("TOPLEFT", 16, -footerY - 24)
+    panel:SetSize(420, footerY + 50)
+end
+
+local function ToggleCompact()
+    addon.db.compact = not addon.db.compact
+    Layout()
+end
+
 local function CreatePanel()
     panel = CreateFrame("Frame", "MyPalladinPanel", UIParent, "BackdropTemplate")
-    panel:SetSize(420, 510)
     panel:SetPoint("CENTER")
     panel:SetClampedToScreen(true)
     panel:SetMovable(true)
@@ -95,6 +172,10 @@ local function CreatePanel()
     Text(panel, "GameFontNormalLarge", 16, -14, 350):SetText("My Palladin")
     local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
+    mode = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    mode:SetSize(76, 22)
+    mode:SetPoint("TOPRIGHT", -38, -10)
+    mode:SetScript("OnClick", ToggleCompact)
 
     for index, id in ipairs(addon.profileOrder) do
         local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -108,6 +189,11 @@ local function CreatePanel()
     focus = Text(panel, "GameFontHighlight", 16, -104, 388)
     focus:SetHeight(42)
     focus:SetJustifyV("TOP")
+    for index = 1, #addon.buffGroups do
+        buffLabels[index] = Text(panel, "GameFontHighlightSmall", 16, -152, 124)
+        buffLabels[index]:SetHeight(30)
+        buffLabels[index]:SetJustifyV("TOP")
+    end
     mana = CreateFrame("StatusBar", nil, panel)
     mana:SetPoint("TOPLEFT", 16, -152)
     mana:SetSize(388, 18)
@@ -116,7 +202,7 @@ local function CreatePanel()
     local background = mana:CreateTexture(nil, "BACKGROUND")
     background:SetAllPoints()
     background:SetColorTexture(0.1, 0.1, 0.15, 1)
-    local manaLabel = mana:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    manaLabel = mana:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     manaLabel:SetPoint("CENTER")
     manaLabel:SetText("Mana")
 
@@ -147,8 +233,11 @@ local function CreatePanel()
     preparation = Text(panel, "GameFontHighlightSmall", 16, -394, 388)
     preparation:SetHeight(44)
     preparation:SetJustifyV("TOP")
-    Text(panel, "GameFontDisableSmall", 16, -450, 388):SetText("Cooldowns only; choose your actions. Drag to move. /mp to toggle.")
-    Text(panel, "GameFontDisableSmall", 16, -482, 388):SetText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " .. addon.guideInfo.patch)
+    empty = Text(panel, "GameFontHighlightSmall", 16, -186, 388)
+    empty:SetText("Train abilities to track their cooldowns.")
+    footer = Text(panel, "GameFontDisableSmall", 16, -450, 388)
+    reference = Text(panel, "GameFontDisableSmall", 16, -482, 388)
+    reference:SetText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " .. addon.guideInfo.patch)
     panel:SetScript("OnShow", RefreshProfile)
 end
 
@@ -176,6 +265,9 @@ events:SetScript("OnEvent", function(self, event, unit)
             message = message:match("^%s*(.-)%s*$"):lower()
             if message == "" then
                 panel:SetShown(not panel:IsShown())
+            elseif message == "compact" then
+                ToggleCompact()
+                panel:Show()
             else
                 ChooseProfile(message)
             end
@@ -184,12 +276,17 @@ events:SetScript("OnEvent", function(self, event, unit)
         self:RegisterEvent("SPELLS_CHANGED")
         self:RegisterEvent("PLAYER_LEVEL_UP")
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+        self:RegisterEvent("PLAYER_REGEN_DISABLED")
+        self:RegisterEvent("PLAYER_REGEN_ENABLED")
+        self:RegisterUnitEvent("UNIT_AURA", "player")
         self:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
         self:RegisterUnitEvent("UNIT_MAXPOWER", "player")
         RefreshProfile()
         Say("Active profile: " .. addon.GetProfile().name .. ". Use /mp to open or close.")
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
         if panel:IsShown() then UpdateMana() end
+    elseif event == "UNIT_AURA" then
+        if panel:IsShown() then UpdateBuffs() end
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         if panel:IsShown() then UpdateCooldowns() end
     else

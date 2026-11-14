@@ -38,6 +38,9 @@ function addon.Initialize(saved)
     if type(saved.activeProfile) ~= "string" or not addon.profiles[saved.activeProfile] then
         saved.activeProfile = "leveling"
     end
+    if type(saved.compact) ~= "boolean" then
+        saved.compact = true
+    end
     addon.db = saved
     return saved
 end

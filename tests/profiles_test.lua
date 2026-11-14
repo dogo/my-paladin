@@ -2,6 +2,7 @@ local function LoadProfiles()
     local addon = {}
     assert(loadfile("MyPalladin/GuideInfo.lua"))("MyPalladin", addon)
     assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
+    assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
     return addon
 end
 
@@ -13,6 +14,10 @@ end
 local character = { activeProfile = "raid", unrelated = 42 }
 assert(addon.Initialize(character) == character)
 assert(addon.GetProfile().name == "Raid" and character.unrelated == 42)
+assert(character.compact == true)
+addon.Initialize({ activeProfile = "raid", compact = false })
+assert(addon.db.compact == false, "Saved display preferences must survive initialization")
+addon.Initialize(character)
 assert(not addon.SelectProfile("unknown") and character.activeProfile == "raid")
 assert(not addon.SelectProfile({}) and character.activeProfile == "raid")
 assert(addon.SelectProfile("dungeon") and character.activeProfile == "dungeon")
@@ -36,9 +41,10 @@ local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
     "SetMovable EnableMouse RegisterForDrag StartMoving StopMovingOrSizing SetUserPlaced " ..
     "SetBackdrop SetBackdropColor SetBackdropBorderColor SetAllPoints SetDesaturated " ..
-    "SetStatusBarTexture SetStatusBarColor SetColorTexture"):gmatch("%S+") do
+    "SetStatusBarTexture SetStatusBarColor SetColorTexture SetTextColor ClearAllPoints"):gmatch("%S+") do
     methods[name] = function() end
 end
+function methods:SetSize(width, height) self.width, self.height = width, height end
 function methods:SetScript(event, callback) self.scripts[event] = callback end
 function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterEvent(event) self.events[event] = nil end
@@ -61,9 +67,10 @@ function methods:SetCooldownFromDurationObject(value)
     self.duration = value
 end
 function methods:SetMinMaxValues(minimum, maximum)
-    assert(minimum == 0 and maximum == secret)
+    assert(minimum == 0)
+    self.maximum = maximum
 end
-function methods:SetValue(value) assert(value == secret) end
+function methods:SetValue(value) self.value = value end
 function CreateFrame(kind, name, parent)
     local frame = setmetatable({ kind = kind, name = name, parent = parent, shown = true,
         scripts = {}, events = {} }, { __index = methods })
@@ -76,10 +83,21 @@ function UnitClass() return "Paladin", "PALADIN" end
 function UnitLevel() return 25 end
 function UnitPower() return secret end
 function UnitPowerMax() return secret end
+function issecretvalue(value) return value == secret end
 function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
 function GetLocale() return "enUS" end
 UIParent, SlashCmdList = {}, {}
 C_Spell = { GetSpellCooldownDuration = function() return secret end }
+local activeBuffs = { ["Seal of Command"] = true, ["Blessing of Might"] = true, ["Retribution Aura"] = true }
+local restrictedBuffs = false
+C_Secrets = { ShouldSpellAuraBeSecret = function() return restrictedBuffs end }
+C_UnitAuras = {
+    GetAuraDataBySpellName = function(unit, name, filter)
+        assert(unit == "player" and filter == "HELPFUL")
+        assert(not restrictedBuffs, "Secret aura data must never be queried")
+        return activeBuffs[name] and setmetatable({}, { __index = function() error("Aura fields must not be inspected") end }) or nil
+    end,
+}
 C_SpellBook = {
     FindSpellBookSlotForSpell = function(name)
         if name == "Hammer of Wrath" then return nil end
@@ -112,7 +130,33 @@ local function FindText(text)
 end
 assert(FindText("Active profile: Dungeon  |  Level 25"))
 assert(FindText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " .. addon.guideInfo.patch))
-assert(FindText("Not learned"), "Unlearned spells must not be presented as available")
+assert(not FindText("Not learned"), "Unlearned spells must be hidden")
+assert(MyPalladinDB.compact == true)
+assert(FindText("Expand"))
+assert(not FindText(addon.profiles.dungeon.preparation):IsShown())
+assert(FindText("Seal: Command"))
+assert(FindText("Blessing: Might"))
+assert(FindText("Aura: Retribution"))
+local manaBar
+for _, frame in ipairs(frames) do
+    if frame.kind == "StatusBar" then manaBar = frame end
+end
+assert(manaBar.value == secret and manaBar.maximum == secret, "Native mana widget must receive opaque values unchanged")
+UnitPower = function() return 15 end
+UnitPowerMax = function() return 100 end
+Emit("UNIT_POWER_UPDATE", "player")
+assert(FindText("Low mana: 15%"))
+assert(manaBar.value == 15 and manaBar.maximum == 100)
+UnitPower = function() return secret end
+UnitPowerMax = function() return secret end
+Emit("UNIT_POWER_UPDATE", "player")
+assert(FindText("Mana"), "A previously computed mana percentage must clear when data becomes secret")
+local compactHeight = panel.height
+FindText("Expand").scripts.OnClick()
+assert(MyPalladinDB.compact == false and panel.height > compactHeight)
+assert(FindText(addon.profiles.dungeon.preparation):IsShown())
+SlashCmdList.MYPALLADIN("compact")
+assert(MyPalladinDB.compact == true and panel.height == compactHeight)
 assert(FindText(addon.profiles.dungeon.preparation))
 local utilityCard
 for _, frame in ipairs(frames) do
@@ -130,6 +174,20 @@ assert(MyPalladinDB.activeProfile == "raid")
 FindText("Leveling").scripts.OnClick()
 assert(MyPalladinDB.activeProfile == "leveling", "Profile buttons must save the selection")
 assert(utilityCard.spellID == known["Divine Shield"])
+restrictedBuffs = true
+Emit("PLAYER_REGEN_DISABLED")
+assert(FindText("Seal: Restricted"), "Combat restrictions must clear previously visible buff status")
+assert(FindText("Blessing: Restricted"))
+assert(not FindText("Seal: Missing"))
+restrictedBuffs = false
+activeBuffs = {}
+Emit("PLAYER_REGEN_ENABLED")
+assert(FindText("Seal: Missing"))
+assert(FindText("Blessing: Missing"))
+assert(FindText("Aura: Missing"))
+activeBuffs["Seal of Righteousness"] = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Seal: Righteousness"), "UNIT_AURA updates must not inspect a potentially secret payload")
 Emit("SPELL_UPDATE_COOLDOWN")
 Emit("UNIT_POWER_UPDATE", "player")
 SlashCmdList.MYPALLADIN("")
@@ -139,4 +197,19 @@ assert(panel:IsShown())
 C_Spell.GetSpellCooldownDuration = nil
 Emit("SPELL_UPDATE_COOLDOWN")
 assert(FindText("Cooldown unavailable"), "Missing APIs must not imply ready abilities")
-print("OK: profile validation, persistence, isolation, UI switching, spell updates and opaque combat values")
+local originalSpellLookup = C_SpellBook.FindSpellBookSlotForSpell
+C_SpellBook.FindSpellBookSlotForSpell = function() return nil end
+Emit("SPELLS_CHANGED")
+assert(FindText("Train abilities to track their cooldowns."):IsShown())
+for _, frame in ipairs(frames) do
+    if frame.cooldown then assert(not frame:IsShown()) end
+end
+C_SpellBook.FindSpellBookSlotForSpell = originalSpellLookup
+Emit("SPELLS_CHANGED")
+assert(not FindText("Train abilities to track their cooldowns."):IsShown())
+for _, frame in ipairs(frames) do
+    if frame.cooldown then
+        assert((frame.spellID ~= nil) == frame:IsShown(), "Only learned spell cards may be shown")
+    end
+end
+print("OK: saved profiles, compact layout, learned spells, buff events and opaque combat values")

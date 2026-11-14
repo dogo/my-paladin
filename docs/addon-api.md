@@ -47,8 +47,16 @@ Se houver distribuição, a política oficial exige addon gratuito e código vis
 
 ## Primeira implementação
 
-O addon em `MyPalladin/` usa `SavedVariablesPerCharacter` para salvar apenas o perfil ativo. Usa o spellbook para obter os IDs/ranks aprendidos, sem inventar IDs das habilidades. Consulta `C_SpellBook.FindSpellBookSlotForSpell` e `GetSpellBookItemInfo`, documentadas no [ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua).
+O addon em `MyPalladin/` usa `SavedVariablesPerCharacter` para salvar o perfil ativo e, desde a 0.3, o modo compacto. Usa o spellbook para obter os IDs/ranks aprendidos, sem inventar IDs das habilidades. Consulta `C_SpellBook.FindSpellBookSlotForSpell` e `GetSpellBookItemInfo`, documentadas no [ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua).
 
-Para exibição, encaminha objetos de duração ao widget de cooldown e valores de mana ao StatusBar, sem calcular prioridades a partir deles. Não há leitura de auras ou do combat log. Perfil e escolhas do usuário ficam separados desses valores de combate. APIs ausentes geram mensagens explícitas.
+Para exibição, encaminha objetos de duração ao widget de cooldown e valores de mana ao StatusBar, sem calcular prioridades a partir deles. Não há leitura do combat log. Perfil e escolhas do usuário ficam separados desses valores de combate. APIs ausentes geram mensagens explícitas.
+
+## Integração da 0.3
+
+O módulo `PlayerState.lua` consulta somente buffs do jogador, por seus nomes em inglês. Antes de `C_UnitAuras.GetAuraDataBySpellName`, exige uma resposta pública e booleana de `C_Secrets.ShouldSpellAuraBeSecret`. Quando o spell está restrito, não faz a consulta. Sem a API de restrições, não afirma ausência. A presença retornada é suficiente: o código não inspeciona os campos da aura.
+
+`RequiresNonSecretAura` pode devolver nenhum valor quando o buff é secreto; interpretar esse retorno como ausência produziria alertas falsos. Fonte primária: [predicados da UI Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretPredicatesDocumentation.lua). A assinatura da consulta está no [UnitAuraDocumentation](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua); `ShouldSpellAuraBeSecret` também aparece na [exportação da documentação do cliente Forever build 70790](https://github.com/Atraeau/WoW-Addons/blob/main/docs/api/System-Config/C_Secrets.md). A exportação não é uma captura exata da build 70938.
+
+Os indicadores são atualizados em `UNIT_AURA`, entrada/saída de combate e atualização do painel. A porcentagem/alerta de mana só é calculada se ambos os valores passarem por `issecretvalue` e forem números válidos. A barra nativa continua recebendo os valores originais. É necessário testar esses caminhos no cliente instalado; os testes locais simulam dados protegidos e falhas da API.
 
 O problema de descoberta foi reproduzido: o addon estava ausente da pasta que continha `Wow.exe`, embora existisse em `Faugus/default`. A cópia para `Faugus/battlenet` passou na verificação de presença e SHA-256. O usuário confirmou o painel em jogo por imagem, no perfil Leveling e nível 20. Isso valida descoberta/carregamento e apresentação inicial; não comprova todos os comportamentos durante combate. A execução em LuaJIT com APIs simuladas verifica a troca de perfis e o encaminhamento dos dados.
