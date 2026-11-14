@@ -1,5 +1,5 @@
 [Unit]
-Description=Check My Palladin Wowhead guide changes
+Description=Check My Paladin Wowhead guide changes
 
 [Service]
 Type=oneshot

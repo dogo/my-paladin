@@ -9,7 +9,7 @@ local settingsChecks, spellChecks, preparationChecks, settingsButtons = {}, {}, 
 local RefreshSettings
 
 local function Say(message)
-    print("|cffffca65My Palladin:|r " .. message)
+    print("|cffffca65My Paladin:|r " .. message)
 end
 
 local function UpdateMana()
@@ -238,7 +238,7 @@ local function CreateSettings()
     settingsPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     settingsPanel:SetBackdropColor(0.06, 0.06, 0.07, 0.98)
     settingsPanel:SetBackdropBorderColor(0.65, 0.48, 0.22, 1)
-    Text(settingsPanel, "GameFontNormalLarge", 16, -14, 350):SetText("My Palladin Settings")
+    Text(settingsPanel, "GameFontNormalLarge", 16, -14, 350):SetText("My Paladin Settings")
     local close = CreateFrame("Button", nil, settingsPanel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
     for index, id in ipairs(addon.profileOrder) do
@@ -312,7 +312,7 @@ local function CreatePanel()
     panel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     panel:SetBackdropColor(0.06, 0.06, 0.07, 0.95)
     panel:SetBackdropBorderColor(0.65, 0.48, 0.22, 1)
-    Text(panel, "GameFontNormalLarge", 16, -14, 350):SetText("My Palladin")
+    Text(panel, "GameFontNormalLarge", 16, -14, 350):SetText("My Paladin")
     local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -2, -2)
     mode = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")

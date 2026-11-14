@@ -1,5 +1,5 @@
 [Unit]
-Description=Check My Palladin guides every day at 09:00 Sao Paulo
+Description=Check My Paladin guides every day at 09:00 Sao Paulo
 
 [Timer]
 OnCalendar=*-*-* 09:00:00 America/Sao_Paulo

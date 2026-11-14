@@ -1,4 +1,4 @@
-# Pesquisa para o My Palladin
+# Pesquisa para o My Paladin
 
 Consulta em 14/11/2026. Referência solicitada: guia de Retribution PvE do Wowhead para **WoW: Forever**, identificado nas páginas como patch 1.60.1.
 

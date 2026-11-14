@@ -1,6 +1,12 @@
-# My Palladin
+# My Paladin
 
-Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.4.1**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. A janela de configurações e o novo aviso de selo em combate ainda precisam de validação no cliente.
+Repositório: [dogo/my-paladin](https://github.com/dogo/my-paladin).
+
+Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.4.2**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. A janela de configurações e o novo aviso de selo em combate ainda precisam de validação no cliente.
+
+## Correção de nome na 0.4.2
+
+O nome exibido passa a ser **My Paladin**. Os identificadores internos `MyPalladin`, `MyPalladinDB` e `MYPALLADIN`, a pasta instalada e os nomes das unidades `mypalladin-guide-check` são mantidos por compatibilidade com as configurações existentes. O caminho local `my-palladin` também permanece para preservar o agendamento. O comando `/mp` continua igual; não renomeie a pasta instalada ou os arquivos de SavedVariables nesta atualização.
 
 ## Novidades da 0.4.1: aviso de selo durante a luta
 
@@ -59,7 +65,7 @@ As diferenças de perfil são escolhas iniciais de interface. Não representam t
 
 ## Instalar
 
-Com o jogo fechado, copie a pasta **MyPalladin** deste projeto para a pasta `Interface/AddOns` da sua instalação de Forever. O caminho final deve terminar em `Interface/AddOns/MyPalladin/MyPalladin.toc`, sem uma pasta extra entre elas. Abra o jogo e habilite **My Palladin** na lista de addons.
+Com o jogo fechado, copie a pasta **MyPalladin** deste projeto para a pasta `Interface/AddOns` da sua instalação de Forever. O caminho final deve terminar em `Interface/AddOns/MyPalladin/MyPalladin.toc`, sem uma pasta extra entre elas. Abra o jogo e habilite **My Paladin** na lista de addons.
 
 Nesta máquina, a instalação que contém `Wow.exe` está em `/home/dogo/Faugus/battlenet/drive_c/Program Files (x86)/World of Warcraft/_forever_`. A pasta semelhante em `Faugus/default` foi o destino inicial incorreto: instalar lá não fazia o addon aparecer na lista do jogo.
 

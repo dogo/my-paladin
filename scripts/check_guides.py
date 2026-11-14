@@ -127,7 +127,7 @@ def extract_article(html):
 
 
 def fetch_article(url):
-    request = Request(url, headers={"User-Agent": "MyPalladin-GuideCheck/0.2 (local change monitor)"})
+    request = Request(url, headers={"User-Agent": "MyPaladin-GuideCheck/0.2 (local change monitor)"})
     with urlopen(request, timeout=20) as response:
         if "text/html" not in response.headers.get("Content-Type", ""):
             raise ValueError("Resposta não é HTML")
@@ -253,9 +253,9 @@ def notify_result(code, folder):
     program = shutil.which("notify-send")
     if code == 0 or not program:
         return
-    title = "My Palladin: erro na consulta" if code == 1 else "My Palladin: guias aguardam revisão"
+    title = "My Paladin: erro na consulta" if code == 1 else "My Paladin: guias aguardam revisão"
     try:
-        subprocess.run([program, "--app-name=My Palladin", title, f"Relatório: {folder / 'report.md'}"],
+        subprocess.run([program, "--app-name=My Paladin", title, f"Relatório: {folder / 'report.md'}"],
                        timeout=5, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired):
         pass  # Desktop notifications are optional; the report remains the authoritative result.
