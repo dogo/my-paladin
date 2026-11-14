@@ -37,15 +37,23 @@ local secret = setmetatable({}, {
     __tostring = function() error("Secret value formatted") end,
 })
 local frames, nextID, known = {}, 0, {}
+local combat = false
+local weaponType, weaponSpeed = "INVTYPE_2HWEAPON", "Speed 3.40"
+local nativeClick = function() error("Addon updates must not execute the native casting handler") end
 local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
     "SetMovable EnableMouse RegisterForDrag StartMoving StopMovingOrSizing SetUserPlaced " ..
     "SetBackdrop SetBackdropColor SetBackdropBorderColor SetAllPoints SetDesaturated " ..
-    "SetStatusBarTexture SetStatusBarColor SetColorTexture SetTextColor ClearAllPoints"):gmatch("%S+") do
+    "SetStatusBarTexture SetStatusBarColor SetColorTexture SetTextColor ClearAllPoints SetHighlightTexture"):gmatch("%S+") do
     methods[name] = function() end
 end
 function methods:SetSize(width, height) self.width, self.height = width, height end
 function methods:SetScript(event, callback) self.scripts[event] = callback end
+function methods:SetAttribute(name, value)
+    assert(not combat, "Casting attributes must not be reconfigured in combat")
+    self.attributes[name] = value
+end
+function methods:RegisterForClicks(...) self.clicks = {...} end
 function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterEvent(event) self.events[event] = nil end
 function methods:RegisterUnitEvent(event) self.events[event] = true end
@@ -71,9 +79,10 @@ function methods:SetMinMaxValues(minimum, maximum)
     self.maximum = maximum
 end
 function methods:SetValue(value) self.value = value end
-function CreateFrame(kind, name, parent)
-    local frame = setmetatable({ kind = kind, name = name, parent = parent, shown = true,
-        scripts = {}, events = {} }, { __index = methods })
+function CreateFrame(kind, name, parent, template)
+    local frame = setmetatable({ kind = kind, name = name, parent = parent, template = template, shown = true,
+        scripts = {}, events = {}, attributes = {} }, { __index = methods })
+    if template == "InsecureActionButtonTemplate" then frame.scripts.OnClick = nativeClick end
     frames[#frames + 1] = frame
     return frame
 end
@@ -86,6 +95,10 @@ function UnitPowerMax() return secret end
 function issecretvalue(value) return value == secret end
 function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
 function GetLocale() return "enUS" end
+function InCombatLockdown() return combat end
+function GetInventoryItemID() return 101 end
+C_Item = { GetItemInfoInstant = function() return 101, "Weapon", "Mace", weaponType end }
+C_TooltipInfo = { GetInventoryItem = function() return { lines = {{rightText = weaponSpeed}} } end }
 UIParent, SlashCmdList = {}, {}
 C_Spell = { GetSpellCooldownDuration = function() return secret end }
 local activeBuffs = { ["Seal of Command"] = true, ["Blessing of Might"] = true, ["Retribution Aura"] = true }
@@ -100,7 +113,7 @@ C_UnitAuras = {
 }
 C_SpellBook = {
     FindSpellBookSlotForSpell = function(name)
-        if name == "Hammer of Wrath" then return nil end
+        if name == "Hammer of Wrath" or name == "Holy Shock" then return nil end
         if not known[name] then
             nextID = nextID + 1
             known[name] = nextID
@@ -137,6 +150,16 @@ assert(not FindText(addon.profiles.dungeon.preparation):IsShown())
 assert(FindText("Seal: Command"))
 assert(FindText("Blessing: Might"))
 assert(FindText("Aura: Retribution"))
+local sealAction
+for _, frame in ipairs(frames) do
+    if frame.name == "MyPalladinSealButton" then sealAction = frame end
+end
+assert(sealAction and sealAction.template == "InsecureActionButtonTemplate")
+assert(sealAction.scripts.OnClick == nativeClick, "Keep the native click handler; never cast from a Lua update")
+assert(sealAction.attributes.type1 == "spell" and sealAction.attributes.spell == known["Seal of Command"])
+assert(sealAction.attributes.unit == "player" and sealAction.attributes.useOnKeyDown == false)
+assert(sealAction.clicks[1] == "LeftButtonUp")
+assert(FindText("Base seal: Seal of Command"))
 local manaBar
 for _, frame in ipairs(frames) do
     if frame.kind == "StatusBar" then manaBar = frame end
@@ -175,19 +198,27 @@ FindText("Leveling").scripts.OnClick()
 assert(MyPalladinDB.activeProfile == "leveling", "Profile buttons must save the selection")
 assert(utilityCard.spellID == known["Divine Shield"])
 restrictedBuffs = true
+combat = true
 Emit("PLAYER_REGEN_DISABLED")
 assert(FindText("Seal: Restricted"), "Combat restrictions must clear previously visible buff status")
 assert(FindText("Blessing: Restricted"))
 assert(not FindText("Seal: Missing"))
+weaponType = "INVTYPE_WEAPON"
+Emit("PLAYER_EQUIPMENT_CHANGED", 16)
+assert(sealAction.attributes.spell == known["Seal of Command"], "Freeze the preparation action during combat")
 restrictedBuffs = false
+combat = false
 activeBuffs = {}
 Emit("PLAYER_REGEN_ENABLED")
 assert(FindText("Seal: Missing"))
 assert(FindText("Blessing: Missing"))
 assert(FindText("Aura: Missing"))
+assert(FindText("Apply: Seal of Righteousness"))
+assert(sealAction.attributes.spell == known["Seal of Righteousness"], "Refresh the seal after weapon changes outside combat")
 activeBuffs["Seal of Righteousness"] = true
 Emit("UNIT_AURA", secret)
 assert(FindText("Seal: Righteousness"), "UNIT_AURA updates must not inspect a potentially secret payload")
+assert(FindText("Base seal: Seal of Righteousness"), "Applying the seal must clear the missing-seal instruction")
 Emit("SPELL_UPDATE_COOLDOWN")
 Emit("UNIT_POWER_UPDATE", "player")
 SlashCmdList.MYPALLADIN("")
@@ -201,6 +232,7 @@ local originalSpellLookup = C_SpellBook.FindSpellBookSlotForSpell
 C_SpellBook.FindSpellBookSlotForSpell = function() return nil end
 Emit("SPELLS_CHANGED")
 assert(FindText("Train abilities to track their cooldowns."):IsShown())
+assert(sealAction.disabled and sealAction.attributes.spell == nil and sealAction.attributes.type1 == nil)
 for _, frame in ipairs(frames) do
     if frame.cooldown then assert(not frame:IsShown()) end
 end
@@ -212,4 +244,19 @@ for _, frame in ipairs(frames) do
         assert((frame.spellID ~= nil) == frame:IsShown(), "Only learned spell cards may be shown")
     end
 end
-print("OK: saved profiles, compact layout, learned spells, buff events and opaque combat values")
+local firstCombatFrame = #frames + 1
+combat, restrictedBuffs = true, true
+local combatAddon = LoadProfiles()
+assert(loadfile("MyPalladin/MyPalladin.lua"))("MyPalladin", combatAddon)
+local combatEvents = frames[firstCombatFrame]
+combatEvents.scripts.OnEvent(combatEvents, "ADDON_LOADED", "MyPalladin")
+local combatSealButton
+for index = firstCombatFrame, #frames do
+    if frames[index].name == "MyPalladinSealButton" then combatSealButton = frames[index] end
+end
+assert(combatSealButton.disabled and combatSealButton.attributes.spell == nil, "Reloading in combat must not configure a cast")
+assert(FindText("Seal recommendation after combat"))
+combat, restrictedBuffs = false, false
+combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
+assert(not combatSealButton.disabled and combatSealButton.attributes.spell == known["Seal of Righteousness"])
+print("OK: profiles, compact layout, buff events, preparation button and combat-safe refresh/reload")

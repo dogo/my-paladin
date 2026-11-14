@@ -3,6 +3,7 @@ local panel, heading, focus, preparation, mana, manaLabel, mode, footer, referen
 local cards, buttons, buffLabels = {}, {}, {}
 local learnedCount = 0
 local Layout
+local sealAction, sealName, sealHelp, recommendedSeal, sealReason
 
 local function Say(message)
     print("|cffffca65My Palladin:|r " .. message)
@@ -36,7 +37,28 @@ local function UpdateBuffs()
             label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
             label:SetTextColor(0.7, 0.7, 0.7)
         end
+        if index == 1 and recommendedSeal then
+            sealName:SetText((status == "missing" and "Apply: " or "Base seal: ") .. recommendedSeal)
+        end
     end
+    if sealReason then
+        sealHelp:SetText(sealReason .. "\n" .. (InCombatLockdown() and "Use your action bar during combat." or "Click the icon to apply."))
+    end
+end
+
+local function UpdateSealAction()
+    if InCombatLockdown() then return end
+    local info, name, reason = addon.GetRecommendedSeal()
+    recommendedSeal, sealReason = name, info and reason or nil
+    sealAction:SetAttribute("useOnKeyDown", false)
+    sealAction:SetAttribute("unit", "player")
+    sealAction.spellID = info and info.spellID
+    sealAction:SetAttribute("type1", info and "spell" or nil)
+    sealAction:SetAttribute("spell", info and info.spellID or nil)
+    sealAction.icon:SetTexture(info and info.iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
+    sealName:SetText(name and "Base seal: " .. name or "No damage seal learned")
+    sealHelp:SetText(reason or "Choose your seal after combat.")
+    if info then sealAction:Enable() else sealAction:Disable() end
 end
 
 local function UpdateCooldowns()
@@ -73,8 +95,7 @@ local function RefreshProfile()
     end
     learnedCount = 0
     for _, name in ipairs(profile.spells) do
-        local slot, bank = C_SpellBook.FindSpellBookSlotForSpell(name)
-        local info = slot and C_SpellBook.GetSpellBookItemInfo(slot, bank)
+        local info = addon.GetLearnedSpell(name)
         if info and info.spellID then
             learnedCount = learnedCount + 1
             local card = cards[learnedCount]
@@ -92,6 +113,7 @@ local function RefreshProfile()
         cards[index]:Hide()
     end
     Layout()
+    UpdateSealAction()
     UpdateCooldowns()
     UpdateMana()
     UpdateBuffs()
@@ -117,7 +139,8 @@ end
 Layout = function()
     local compact = addon.db.compact
     local buffY = compact and 104 or 152
-    local manaY = buffY + 38
+    local sealY = buffY + 36
+    local manaY = sealY + 54
     local cardsY = manaY + 32
     local rowHeight = compact and 44 or 50
     local rows = math.max(1, math.ceil(learnedCount / 2))
@@ -129,6 +152,12 @@ Layout = function()
         label:ClearAllPoints()
         label:SetPoint("TOPLEFT", 16 + (index - 1) * 132, -buffY)
     end
+    sealAction:ClearAllPoints()
+    sealAction:SetPoint("TOPLEFT", 16, -sealY)
+    sealName:ClearAllPoints()
+    sealName:SetPoint("TOPLEFT", 60, -sealY)
+    sealHelp:ClearAllPoints()
+    sealHelp:SetPoint("TOPLEFT", 60, -sealY - 18)
     mana:ClearAllPoints()
     mana:SetPoint("TOPLEFT", 16, -manaY)
     for index, card in ipairs(cards) do
@@ -143,7 +172,7 @@ Layout = function()
     local footerY = afterCards + (compact and 8 or 58)
     footer:ClearAllPoints()
     footer:SetPoint("TOPLEFT", 16, -footerY)
-    footer:SetText(compact and "Drag to move | /mp to toggle" or "Cooldowns only; choose your actions. Drag to move. /mp to toggle.")
+    footer:SetText(compact and "Drag to move | /mp to toggle" or "Cooldowns and seal prep. Drag to move. /mp to toggle.")
     reference:ClearAllPoints()
     reference:SetPoint("TOPLEFT", 16, -footerY - 24)
     panel:SetSize(420, footerY + 50)
@@ -194,6 +223,32 @@ local function CreatePanel()
         buffLabels[index]:SetHeight(30)
         buffLabels[index]:SetJustifyV("TOP")
     end
+    sealAction = CreateFrame("Button", "MyPalladinSealButton", panel, "InsecureActionButtonTemplate")
+    sealAction:SetSize(36, 36)
+    sealAction:RegisterForClicks("LeftButtonUp")
+    sealAction:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
+    sealAction.icon = sealAction:CreateTexture(nil, "ARTWORK")
+    sealAction.icon:SetAllPoints()
+    sealAction.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
+    sealAction:Disable()
+    sealAction:SetScript("OnEnter", function(self)
+        if self.spellID then
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetSpellByID(self.spellID)
+            GameTooltip:AddLine("Click to apply before combat. Use your action bar during combat.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end
+    end)
+    sealAction:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    sealAction:SetScript("PostClick", function()
+        if InCombatLockdown() then Say("Use the seal on your action bar during combat.") end
+    end)
+    sealName = Text(panel, "GameFontHighlight", 60, -188, 344)
+    sealName:SetText("Seal recommendation after combat")
+    sealHelp = Text(panel, "GameFontHighlightSmall", 60, -206, 344)
+    sealHelp:SetText("Use your action bar during combat.")
+    sealHelp:SetHeight(32)
+    sealHelp:SetJustifyV("TOP")
     mana = CreateFrame("StatusBar", nil, panel)
     mana:SetPoint("TOPLEFT", 16, -152)
     mana:SetSize(388, 18)
@@ -274,6 +329,8 @@ events:SetScript("OnEvent", function(self, event, unit)
         end
         self:RegisterEvent("PLAYER_ENTERING_WORLD")
         self:RegisterEvent("SPELLS_CHANGED")
+        self:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+        self:RegisterEvent("GET_ITEM_INFO_RECEIVED")
         self:RegisterEvent("PLAYER_LEVEL_UP")
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
         self:RegisterEvent("PLAYER_REGEN_DISABLED")

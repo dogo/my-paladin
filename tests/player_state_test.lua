@@ -59,4 +59,52 @@ assert(addon.GetBuffStatus(seal) == "unavailable")
 issecretvalue = nil
 text, low = addon.GetManaText(15, 100)
 assert(text == "Mana" and not low)
-print("OK: buff presence, missing vs restricted, API failures and safe low-mana threshold")
+function issecretvalue(value) return rawequal(value, secret) end
+local combat = false
+function InCombatLockdown() return combat end
+local learned = { ["Seal of Righteousness"] = {spellID=101,iconID=201} }
+C_SpellBook = {
+    FindSpellBookSlotForSpell = function(name) return learned[name] and name, 0 end,
+    GetSpellBookItemInfo = function(name) return learned[name] end,
+}
+local info, sealName, reason = addon.GetRecommendedSeal()
+assert(info.spellID == 101 and sealName == "Seal of Righteousness" and reason == "Command not learned")
+learned["Seal of Command"] = {spellID=102,iconID=202}
+local itemID, equipLoc, speedText = 501, "INVTYPE_2HWEAPON", "Speed 3.40"
+function GetInventoryItemID() return itemID end
+C_Item = { GetItemInfoInstant = function() return itemID,"Weapon","Mace",equipLoc end }
+C_TooltipInfo = { GetInventoryItem = function() return {lines={{rightText=speedText}}} end }
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Command" and info.spellID == 102)
+speedText = "Speed 2.80"
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Command")
+speedText = "Speed 2.79"
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Righteousness")
+equipLoc = "INVTYPE_WEAPON"
+info, sealName, reason = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Righteousness" and reason == "One-handed weapon")
+equipLoc, speedText = "INVTYPE_2HWEAPON", "Speed 3.40"
+learned["Holy Shock"] = {spellID=103}
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Righteousness")
+learned["Holy Shock"] = nil
+speedText = secret
+info, sealName, reason = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Righteousness" and reason:find("unavailable"))
+C_TooltipInfo.GetInventoryItem = function() error("Tooltip unavailable") end
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Righteousness")
+itemID = nil
+info, sealName, reason = addon.GetRecommendedSeal()
+assert(reason == "No weapon equipped")
+learned["Seal of Righteousness"] = nil
+info, sealName = addon.GetRecommendedSeal()
+assert(sealName == "Seal of Command" and info.spellID == 102)
+learned["Seal of Command"] = nil
+assert(addon.GetRecommendedSeal() == nil)
+combat = true
+C_SpellBook.FindSpellBookSlotForSpell = function() error("No recommendation queries during combat") end
+assert(addon.GetRecommendedSeal() == nil)
+print("OK: buff states, mana safety and learned-seal recommendations for weapon/build variants")

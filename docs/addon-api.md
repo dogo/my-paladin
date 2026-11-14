@@ -59,4 +59,12 @@ O módulo `PlayerState.lua` consulta somente buffs do jogador, por seus nomes em
 
 Os indicadores são atualizados em `UNIT_AURA`, entrada/saída de combate e atualização do painel. A porcentagem/alerta de mana só é calculada se ambos os valores passarem por `issecretvalue` e forem números válidos. A barra nativa continua recebendo os valores originais. É necessário testar esses caminhos no cliente instalado; os testes locais simulam dados protegidos e falhas da API.
 
+## Botão de preparação da 0.3.1
+
+O botão usa `InsecureActionButtonTemplate`, cujo handler nativo chama a ação somente fora de combate. São configurados `type1=spell`, o ID aprendido no spellbook, `unit=player` e `useOnKeyDown=false`, com clique no release esquerdo. O addon mantém o `OnClick` herdado e nunca chama uma função de lançamento nos eventos de atualização. Fontes primárias: [SecureTemplates.xml](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.xml) e [SecureTemplates.lua](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_FrameXML/SecureTemplates.lua).
+
+A recomendação considera os selos e Holy Shock aprendidos. Para a arma, consulta o item no slot 16 e `C_Item.GetItemInfoInstant`; quando necessário, lê a velocidade base no texto em inglês de `C_TooltipInfo.GetInventoryItem`. Não consulta equipamento nem muda a ação durante combate. Dados ausentes, secretos ou não reconhecidos geram um fallback explícito. Fontes: [ItemDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/ItemDocumentation.lua), [TooltipInfoDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/TooltipInfoDocumentation.lua).
+
+A imagem enviada da 0.3 confirmou o compacto, seis habilidades aprendidas, Might/Retribution ativos e ausência de selo indicada. O novo clique de preparação ainda depende do teste do jogador no cliente real.
+
 O problema de descoberta foi reproduzido: o addon estava ausente da pasta que continha `Wow.exe`, embora existisse em `Faugus/default`. A cópia para `Faugus/battlenet` passou na verificação de presença e SHA-256. O usuário confirmou o painel em jogo por imagem, no perfil Leveling e nível 20. Isso valida descoberta/carregamento e apresentação inicial; não comprova todos os comportamentos durante combate. A execução em LuaJIT com APIs simuladas verifica a troca de perfis e o encaminhamento dos dados.
