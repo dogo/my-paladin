@@ -112,6 +112,10 @@ assert(sealName == "Seal of Command" and info.spellID == 102)
 learned["Seal of Command"] = nil
 assert(addon.GetRecommendedSeal() == nil)
 combat = true
-C_SpellBook.FindSpellBookSlotForSpell = function() error("No recommendation queries during combat") end
 assert(addon.GetRecommendedSeal() == nil)
+learned["Seal of Righteousness"] = {spellID=101,iconID=201}
+learned["Seal of Command"] = {spellID=102,iconID=202}
+GetInventoryItemID = function() error("No equipment queries in combat") end
+info, sealName, reason = addon.GetRecommendedSeal()
+assert(info.spellID == 101 and sealName == "Seal of Righteousness" and reason == "Weapon check after combat")
 print("OK: buff states, mana safety and learned-seal recommendations for weapon/build variants")

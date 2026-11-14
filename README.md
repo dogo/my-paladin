@@ -1,13 +1,21 @@
 # My Palladin
 
-Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.4.0**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. A janela de configurações, o clique de preparação e o comportamento durante combate ainda precisam de validação no cliente.
+Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.4.1**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. A janela de configurações e o novo aviso de selo em combate ainda precisam de validação no cliente.
 
-## Novidades da 0.4: configurações por perfil
+## Novidades da 0.4.1: aviso de selo durante a luta
+
+O aviso tem **ícone e nome completo**, aparece perto do centro da tela e funciona com o painel `/mp` fechado. Quando não há selo ativo, mostra **Seal missing**; ao aplicar um selo pela sua barra de ações, desaparece. Volta a aparecer a cada remoção ou expiração detectada, inclusive durante combate. A atualização usa os eventos de buff, sem um contador fixo de 30 segundos, pois o selo também pode sair antes desse prazo.
+
+Arraste o aviso quando estiver visível fora de combate para mudar sua posição. Durante a luta, ele deixa passar os cliques. O antigo botão de selo dentro do painel foi removido. Use sua tecla habitual para reaplicar o selo.
+
+Se o jogo restringir a leitura durante combate, o aviso fica cinza com **Check seal / Status restricted**; falhas de acesso mostram **Status unavailable**. Esses estados não afirmam que o selo acabou. Fora de combate, dados inacessíveis não geram esse lembrete. Não há lançamento automático nem tentativa de contornar as restrições da API.
+
+## Configurações por perfil (0.4)
 
 Abra **Settings** no painel ou use `/mp settings`. Escolha Leveling, Dungeon ou Raid: a seleção também ativa o perfil, e cada um salva suas próprias preferências para este personagem:
 
 - Painel compacto ou expandido.
-- Destaque de buffs ausentes. Desativar mantém o estado visível em cinza e remove a instrução **Apply**.
+- Destaque de buffs ausentes. Desativar mantém os estados do painel em cinza e desliga o aviso independente de selo para esse perfil.
 - Alerta de mana ativado/desativado e limite de 0 a 100%, ajustado em passos de 5. O padrão continua 20%; o alerta dispara abaixo do limite, quando os valores estão acessíveis.
 - Quais cooldowns da lista do perfil aparecem. Habilidades não aprendidas continuam ocultas mesmo se marcadas.
 - Quais lembretes entram na preparação e se a lista aparece no painel expandido. Nenhum item marcado oculta a seção; o modo compacto mantém a lista oculta.
@@ -16,21 +24,21 @@ As alterações são aplicadas imediatamente, sem botão de salvar, e persistem 
 
 ## Qual selo usar
 
-O painel mostra o **ícone clicável**, o nome completo do selo base e o motivo da recomendação. Quando identifica que falta um selo, escreve **Apply: Seal of …**. Clique no ícone para aplicá-lo **fora de combate**. Na luta, use a habilidade pela sua barra de ações; o botão não executa lançamentos automáticos nem substitui sua rotação.
+O aviso independente mostra o ícone e o nome completo do selo base recomendado. Aplique pela sua barra de ações, inclusive em combate:
 
 - Sem Command aprendido: **Seal of Righteousness**.
 - Com Command aprendido e arma de duas mãos com velocidade base a partir de aproximadamente 2,8s: **Seal of Command**.
 - Com arma de uma mão, duas mãos mais rápida, ou Holy Shock aprendido: **Seal of Righteousness**.
 
-Esse critério inicial segue a [orientação de selos do guia](https://www.wowhead.com/forever/guide/classes/paladin/retribution/rotation-cooldowns-pve-dps), que apresenta o corte de velocidade como aproximado. Não é uma simulação de dano por equipamento. Só recomenda habilidades aprendidas. Se faltarem dados da arma, usa Righteousness como fallback explícito; sem nenhum dos dois selos aprendido, desabilita o clique e orienta procurar o treinador.
+Esse critério inicial segue a [orientação de selos do guia](https://www.wowhead.com/forever/guide/classes/paladin/retribution/rotation-cooldowns-pve-dps), que apresenta o corte de velocidade como aproximado. Não é uma simulação de dano por equipamento. Só recomenda habilidades aprendidas. Se faltarem dados da arma, usa Righteousness como fallback; sem nenhum dos dois selos aprendido, não mostra o aviso.
 
-A velocidade vem do tooltip em inglês da arma equipada, não da velocidade de ataque modificada por buffs. A seleção é atualizada fora de combate, ao aprender habilidades ou trocar equipamento; durante combate, preserva a última referência. **Base seal** é uma indicação de preparação, não uma ordem para interromper Crusader ou o consumo de ecos com outro selo.
+A velocidade vem do tooltip em inglês da arma equipada, não da velocidade de ataque modificada por buffs. A seleção é atualizada fora de combate, ao aprender habilidades ou trocar equipamento; durante combate, preserva a última referência. Se o addon carregar no meio da luta sem referência anterior, usa um selo aprendido disponível (Righteousness como fallback quando ambos estão aprendidos), sem consultar a arma; ao sair de combate, recalcula a recomendação. Qualquer um dos sete selos ativos oculta o aviso, para não interromper Crusader ou o consumo de ecos com outro selo.
 
 ## Novidades da 0.3
 
 - Painel compacto por padrão; **Expand/Compact** ou `/mp compact` alterna o modo. Desde a 0.4, a preferência fica salva por personagem e perfil.
 - Habilidades não aprendidas são ocultadas; o painel se ajusta à quantidade exibida e atualiza ao aprender habilidades.
-- Selo, bênção e aura do jogador aparecem em três indicadores: verde para ativo, laranja para ausente, cinza para **Restricted/Unavailable**. A leitura verifica a restrição do spell antes da consulta; dados inacessíveis não geram aviso de buff ausente. Não reutiliza o último estado conhecido durante combate.
+- Selo, bênção e aura do jogador aparecem em três indicadores: verde para ativo, laranja para bênção/aura ausente e cinza para **Restricted/Unavailable**. Desde a 0.4.1, a ausência de selo fica cinza no painel e ganha o aviso independente na tela. A leitura verifica a restrição do spell antes da consulta; dados inacessíveis não geram aviso de buff ausente. Não reutiliza o último estado conhecido durante combate.
 - Mana mostra porcentagem e muda para laranja abaixo do limite configurado, quando o alerta está ativado e os valores permitem cálculo. Com valores protegidos, mantém a barra nativa e o texto **Mana**, sem tentar calcular alertas. O padrão de 20% é uma escolha inicial do addon, não uma regra extraída do guia.
 
 O acompanhamento considera os sete selos, as bênçãos Might/Wisdom/Kings e as seis auras descritas no guia. Reconhecer uma dessas bênçãos não confirma a atribuição ideal para o grupo. Não inclui buffs de camping equivalentes, Forbearance, ecos ou previsão da próxima habilidade.
@@ -113,7 +121,7 @@ Nesta máquina, o usuário ativou o timer em 14/11/2026 e iniciou a primeira con
 
 ## Limites desta versão
 
-Exibe cooldowns usando objetos de duração nativos, sem calcular uma próxima ação a partir de valores protegidos de combate. Se a API de cooldown não estiver disponível, mostra **Cooldown unavailable**. Buffs inacessíveis mostram **Restricted/Unavailable**. Ainda não acompanha os ecos de Unsealed Wrath; os lembretes de preparação são textos por perfil. O botão de selo só lança a habilidade por clique explícito fora de combate. Não altera talentos, equipamento ou teclas.
+Exibe cooldowns usando objetos de duração nativos, sem calcular uma próxima ação a partir de valores protegidos de combate. Se a API de cooldown não estiver disponível, mostra **Cooldown unavailable**. Buffs inacessíveis mostram **Restricted/Unavailable**. Ainda não acompanha os ecos de Unsealed Wrath; os lembretes de preparação são textos por perfil. O aviso de selo funciona separado do painel e orienta reaplicar pela barra de ações; dados restritos não permitem confirmar a ausência. Não altera talentos, equipamento ou teclas.
 
 O número de Interface e as APIs foram pesquisados. O painel carregou na instalação correta, conforme imagem do usuário. Validar ranks das habilidades, exibição de cooldowns/mana durante combate, troca de perfil e persistência após `/reload` na build 70938.
 
@@ -128,11 +136,11 @@ luajit tests/profile_settings_test.lua
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Os testes Lua cobrem migração e recuperação de configurações inválidas, persistência e isolamento entre perfis/personagens, callbacks da janela Settings, seleção de habilidades/lembretes, layout vazio, atualização de buffs ao entrar/sair de combate, distinção entre ausente e restrito, falhas das APIs, limiar de mana configurável e encaminhamento de valores opacos aos widgets. A recomendação de selo cobre armas rápidas/lentas/de uma mão, Holy Shock, dados ausentes e preservação da ação em combate. Os atributos do botão e a manutenção do handler nativo são conferidos; a simulação não comprova o lançamento real no jogo.
+Os testes Lua cobrem migração e recuperação de configurações inválidas, persistência e isolamento entre perfis/personagens, callbacks da janela Settings, seleção de habilidades/lembretes, layout vazio, atualização de buffs ao entrar/sair de combate, distinção entre ausente e restrito, falhas das APIs, limiar de mana configurável e encaminhamento de valores opacos aos widgets. A recomendação de selo cobre armas rápidas/lentas/de uma mão, Holy Shock, dados ausentes e preservação da referência em combate. O aviso cobre três ciclos de remoção/reaplicação em combate com o painel fechado, outros selos ativos, dados restritos/indisponíveis, desativação por perfil e reload em combate. A simulação confere que o addon não cria botões de lançamento; ainda é necessário validar os eventos e as permissões no jogo.
 
 Para validar a 0.4: use `/reload` e `/mp settings`. Em Dungeon, altere o limite de mana e desmarque uma habilidade aprendida; em Leveling, confira que essas preferências continuam como antes. Volte a Dungeon e confirme os valores; faça outro `/reload` e confirme a persistência. Expanda o painel para conferir a seleção de lembretes e a opção de ocultar a preparação.
 
-Confira também o nome/ícone do selo recomendado e clique nele fora de combate. O indicador de selo deve ficar verde e **Apply** deve mudar para **Base seal**, quando os destaques estiverem ativados. Troque a arma para conferir a recomendação. Faça uma luta usando Judgement e Holy Strike; confira os cooldowns e a barra de mana. O clique de preparação não deve lançar habilidades em combate. Durante restrições, os indicadores devem ficar cinza, sem afirmar ausência. Depois de sair do combate, devem voltar ao estado atual.
+Para validar o aviso da 0.4.1, feche o painel com `/mp` e fique sem selo. O ícone com **Seal missing** deve aparecer; aplique o selo pela sua tecla para ocultá-lo. Entre em combate e repita o ciclo, deixando expirar ou consumindo o selo. O aviso deve voltar após cada remoção, sem abrir o painel. Se aparecer **Check seal / Status restricted**, registre esse resultado: nessa build a API não está permitindo confirmar o estado durante a luta. Confira também o arraste fora de combate e se o aviso deixa passar cliques durante combate.
 
 Os testes do monitor usam fixtures HTML representativas e respostas simuladas: extração de subseções, rejeição de bloqueios, links adicionais, primeira captura, diferenças persistentes, aceitação manual, notificações e preservação após erros. A primeira consulta real extraiu o markup dos oito artigos; ele inclui as abas e os payloads de talentos disponíveis no HTML, mas não comprova o funcionamento de todos os widgets interativos.
 

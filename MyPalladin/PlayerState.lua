@@ -47,7 +47,6 @@ local function WeaponInfo()
 end
 
 function addon.GetRecommendedSeal()
-    if InCombatLockdown() then return nil end
     local righteousness = addon.GetLearnedSpell("Seal of Righteousness")
     local command = addon.GetLearnedSpell("Seal of Command")
     if not righteousness and not command then return nil, nil, "Learn a damage seal at your class trainer." end
@@ -55,6 +54,9 @@ function addon.GetRecommendedSeal()
     if not righteousness then return command, "Seal of Command", "Only learned damage seal" end
     if addon.GetLearnedSpell("Holy Shock") then
         return righteousness, "Seal of Righteousness", "Holy Shock learned"
+    end
+    if InCombatLockdown() then
+        return righteousness, "Seal of Righteousness", "Weapon check after combat"
     end
     local equipLoc, speed = WeaponInfo()
     if equipLoc == "INVTYPE_2HWEAPON" and speed then

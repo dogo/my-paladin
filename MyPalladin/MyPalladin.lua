@@ -3,7 +3,7 @@ local panel, heading, focus, preparation, mana, manaLabel, mode, footer, referen
 local cards, buttons, buffLabels = {}, {}, {}
 local learnedCount = 0
 local Layout
-local sealAction, sealName, sealHelp, recommendedSeal, sealReason
+local sealAlert, sealTitle, sealName, sealHelp, recommendedSeal, recommendedSealInfo
 local settingsPanel, settingsHeading, thresholdLabel, thresholdMinus, thresholdPlus
 local settingsChecks, spellChecks, preparationChecks, settingsButtons = {}, {}, {}, {}
 local RefreshSettings
@@ -26,6 +26,31 @@ local function UpdateMana()
     end
 end
 
+local function UpdateSealAlert(status)
+    local combat = InCombatLockdown()
+    sealAlert:EnableMouse(not combat)
+    if combat then sealAlert:StopMovingOrSizing() end
+    if not addon.GetSettings().buffWarnings or not recommendedSealInfo or status == "active" then
+        sealAlert:Hide()
+        return
+    end
+    sealAlert.icon:SetTexture(recommendedSealInfo.iconID)
+    sealName:SetText(recommendedSeal)
+    if status == "missing" then
+        sealTitle:SetText("Seal missing")
+        sealTitle:SetTextColor(1, 0.5, 0.2)
+        sealHelp:SetText("Use your action bar")
+    elseif combat then
+        sealTitle:SetText("Check seal")
+        sealTitle:SetTextColor(0.7, 0.7, 0.7)
+        sealHelp:SetText(status == "restricted" and "Status restricted" or "Status unavailable")
+    else
+        sealAlert:Hide()
+        return
+    end
+    sealAlert:Show()
+end
+
 local function UpdateBuffs()
     local warn = addon.GetSettings().buffWarnings
     for index, group in ipairs(addon.buffGroups) do
@@ -36,33 +61,19 @@ local function UpdateBuffs()
             label:SetTextColor(0.4, 1, 0.4)
         elseif status == "missing" then
             label:SetText(group.label .. ": Missing")
-            if warn then label:SetTextColor(1, 0.5, 0.2) else label:SetTextColor(0.7, 0.7, 0.7) end
+            if warn and index ~= 1 then label:SetTextColor(1, 0.5, 0.2) else label:SetTextColor(0.7, 0.7, 0.7) end
         else
             label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
             label:SetTextColor(0.7, 0.7, 0.7)
         end
-        if index == 1 and recommendedSeal then
-            sealName:SetText((status == "missing" and warn and "Apply: " or "Base seal: ") .. recommendedSeal)
-        end
-    end
-    if sealReason then
-        sealHelp:SetText(sealReason .. "\n" .. (InCombatLockdown() and "Use your action bar during combat." or "Click the icon to apply."))
+        if index == 1 then UpdateSealAlert(status) end
     end
 end
 
-local function UpdateSealAction()
-    if InCombatLockdown() then return end
-    local info, name, reason = addon.GetRecommendedSeal()
-    recommendedSeal, sealReason = name, info and reason or nil
-    sealAction:SetAttribute("useOnKeyDown", false)
-    sealAction:SetAttribute("unit", "player")
-    sealAction.spellID = info and info.spellID
-    sealAction:SetAttribute("type1", info and "spell" or nil)
-    sealAction:SetAttribute("spell", info and info.spellID or nil)
-    sealAction.icon:SetTexture(info and info.iconID or "Interface\\Icons\\INV_Misc_QuestionMark")
-    sealName:SetText(name and "Base seal: " .. name or "No damage seal learned")
-    sealHelp:SetText(reason or "Choose your seal after combat.")
-    if info then sealAction:Enable() else sealAction:Disable() end
+local function UpdateSealRecommendation()
+    if not InCombatLockdown() or not recommendedSealInfo then
+        recommendedSealInfo, recommendedSeal = addon.GetRecommendedSeal()
+    end
 end
 
 local function UpdateCooldowns()
@@ -117,7 +128,7 @@ local function RefreshProfile()
         cards[index]:Hide()
     end
     Layout()
-    UpdateSealAction()
+    UpdateSealRecommendation()
     UpdateCooldowns()
     UpdateMana()
     UpdateBuffs()
@@ -146,8 +157,7 @@ Layout = function()
     local compact = settings.compact
     local showPreparation = not compact and settings.showPreparation and addon.GetPreparationText() ~= nil
     local buffY = compact and 104 or 152
-    local sealY = buffY + 36
-    local manaY = sealY + 54
+    local manaY = buffY + 36
     local cardsY = manaY + 32
     local rowHeight = compact and 44 or 50
     local rows = math.max(1, math.ceil(learnedCount / 2))
@@ -159,12 +169,6 @@ Layout = function()
         label:ClearAllPoints()
         label:SetPoint("TOPLEFT", 16 + (index - 1) * 132, -buffY)
     end
-    sealAction:ClearAllPoints()
-    sealAction:SetPoint("TOPLEFT", 16, -sealY)
-    sealName:ClearAllPoints()
-    sealName:SetPoint("TOPLEFT", 60, -sealY)
-    sealHelp:ClearAllPoints()
-    sealHelp:SetPoint("TOPLEFT", 60, -sealY - 18)
     mana:ClearAllPoints()
     mana:SetPoint("TOPLEFT", 16, -manaY)
     for index, card in ipairs(cards) do
@@ -179,7 +183,7 @@ Layout = function()
     local footerY = afterCards + (showPreparation and 58 or 8)
     footer:ClearAllPoints()
     footer:SetPoint("TOPLEFT", 16, -footerY)
-    footer:SetText(compact and "Drag to move | /mp to toggle" or "Cooldowns and seal prep. Drag to move. /mp to toggle.")
+    footer:SetText("Drag to move | /mp to toggle")
     reference:ClearAllPoints()
     reference:SetPoint("TOPLEFT", 16, -footerY - 24)
     panel:SetSize(420, footerY + 50)
@@ -338,32 +342,27 @@ local function CreatePanel()
         buffLabels[index]:SetHeight(30)
         buffLabels[index]:SetJustifyV("TOP")
     end
-    sealAction = CreateFrame("Button", "MyPalladinSealButton", panel, "InsecureActionButtonTemplate")
-    sealAction:SetSize(36, 36)
-    sealAction:RegisterForClicks("LeftButtonUp")
-    sealAction:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    sealAction.icon = sealAction:CreateTexture(nil, "ARTWORK")
-    sealAction.icon:SetAllPoints()
-    sealAction.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
-    sealAction:Disable()
-    sealAction:SetScript("OnEnter", function(self)
-        if self.spellID then
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetSpellByID(self.spellID)
-            GameTooltip:AddLine("Click to apply before combat. Use your action bar during combat.", 1, 1, 1, true)
-            GameTooltip:Show()
-        end
+    sealAlert = CreateFrame("Frame", "MyPalladinSealAlert", UIParent)
+    sealAlert:Hide()
+    sealAlert:SetSize(300, 64)
+    sealAlert:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+    sealAlert:SetFrameStrata("HIGH")
+    sealAlert:SetClampedToScreen(true)
+    sealAlert:SetMovable(true)
+    sealAlert:RegisterForDrag("LeftButton")
+    sealAlert:SetScript("OnDragStart", function(self)
+        if not InCombatLockdown() then self:StartMoving() end
     end)
-    sealAction:SetScript("OnLeave", function() GameTooltip:Hide() end)
-    sealAction:SetScript("PostClick", function()
-        if InCombatLockdown() then Say("Use the seal on your action bar during combat.") end
+    sealAlert:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self:SetUserPlaced(true)
     end)
-    sealName = Text(panel, "GameFontHighlight", 60, -188, 344)
-    sealName:SetText("Seal recommendation after combat")
-    sealHelp = Text(panel, "GameFontHighlightSmall", 60, -206, 344)
-    sealHelp:SetText("Use your action bar during combat.")
-    sealHelp:SetHeight(32)
-    sealHelp:SetJustifyV("TOP")
+    sealAlert.icon = sealAlert:CreateTexture(nil, "ARTWORK")
+    sealAlert.icon:SetPoint("TOPLEFT", 0, -4)
+    sealAlert.icon:SetSize(48, 48)
+    sealTitle = Text(sealAlert, "GameFontNormalLarge", 60, 0, 240)
+    sealName = Text(sealAlert, "GameFontHighlight", 60, -22, 240)
+    sealHelp = Text(sealAlert, "GameFontHighlightSmall", 60, -42, 240)
     mana = CreateFrame("StatusBar", nil, panel)
     mana:SetPoint("TOPLEFT", 16, -152)
     mana:SetSize(388, 18)
@@ -461,7 +460,7 @@ events:SetScript("OnEvent", function(self, event, unit)
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
         if panel:IsShown() then UpdateMana() end
     elseif event == "UNIT_AURA" then
-        if panel:IsShown() then UpdateBuffs() end
+        UpdateBuffs()
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         if panel:IsShown() then UpdateCooldowns() end
     else

@@ -39,7 +39,6 @@ local secret = setmetatable({}, {
 local frames, nextID, known = {}, 0, {}
 local combat = false
 local weaponType, weaponSpeed = "INVTYPE_2HWEAPON", "Speed 3.40"
-local nativeClick = function() error("Addon updates must not execute the native casting handler") end
 local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
     "SetMovable EnableMouse RegisterForDrag StartMoving StopMovingOrSizing SetUserPlaced " ..
@@ -51,11 +50,13 @@ function methods:SetEnabled(value) self.disabled = not value end
 function methods:SetChecked(value) self.checked = value end
 function methods:GetChecked() return self.checked end
 function methods:SetTextColor(...) self.textColor = {...} end
+function methods:EnableMouse(value) self.mouseEnabled = value end
+function methods:StartMoving() self.moving = true end
+function methods:StopMovingOrSizing() self.moving = false end
 function methods:SetSize(width, height) self.width, self.height = width, height end
 function methods:SetScript(event, callback) self.scripts[event] = callback end
 function methods:SetAttribute(name, value)
-    assert(not combat, "Casting attributes must not be reconfigured in combat")
-    self.attributes[name] = value
+    error("The seal alert must never configure a casting action")
 end
 function methods:RegisterForClicks(...) self.clicks = {...} end
 function methods:RegisterEvent(event) self.events[event] = true end
@@ -86,7 +87,8 @@ function methods:SetValue(value) self.value = value end
 function CreateFrame(kind, name, parent, template)
     local frame = setmetatable({ kind = kind, name = name, parent = parent, template = template, shown = true,
         scripts = {}, events = {}, attributes = {} }, { __index = methods })
-    if template == "InsecureActionButtonTemplate" then frame.scripts.OnClick = nativeClick end
+    assert(template ~= "InsecureActionButtonTemplate" and template ~= "SecureActionButtonTemplate",
+        "Seal reminders must not create casting buttons")
     frames[#frames + 1] = frame
     return frame
 end
@@ -100,7 +102,7 @@ function issecretvalue(value) return value == secret end
 function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
 function GetLocale() return "enUS" end
 function InCombatLockdown() return combat end
-function GetInventoryItemID() return 101 end
+function GetInventoryItemID() assert(not combat, "No equipment queries in combat"); return 101 end
 C_Item = { GetItemInfoInstant = function() return 101, "Weapon", "Mace", weaponType end }
 C_TooltipInfo = { GetInventoryItem = function() return { lines = {{rightText = weaponSpeed}} } end }
 UIParent, SlashCmdList = {}, {}
@@ -154,16 +156,13 @@ assert(not FindText(addon.GetPreparationText()):IsShown())
 assert(FindText("Seal: Command"))
 assert(FindText("Blessing: Might"))
 assert(FindText("Aura: Retribution"))
-local sealAction
+local sealAlert
 for _, frame in ipairs(frames) do
-    if frame.name == "MyPalladinSealButton" then sealAction = frame end
+    if frame.name == "MyPalladinSealAlert" then sealAlert = frame end
 end
-assert(sealAction and sealAction.template == "InsecureActionButtonTemplate")
-assert(sealAction.scripts.OnClick == nativeClick, "Keep the native click handler; never cast from a Lua update")
-assert(sealAction.attributes.type1 == "spell" and sealAction.attributes.spell == known["Seal of Command"])
-assert(sealAction.attributes.unit == "player" and sealAction.attributes.useOnKeyDown == false)
-assert(sealAction.clicks[1] == "LeftButtonUp")
-assert(FindText("Base seal: Seal of Command"))
+assert(sealAlert and sealAlert.parent == UIParent and sealAlert.kind == "Frame")
+assert(not sealAlert:IsShown(), "An active seal must hide the standalone reminder")
+assert(not sealAlert.scripts.OnClick, "The reminder must not cast spells")
 local manaBar
 for _, frame in ipairs(frames) do
     if frame.kind == "StatusBar" then manaBar = frame end
@@ -209,7 +208,8 @@ assert(FindText("Blessing: Restricted"))
 assert(not FindText("Seal: Missing"))
 weaponType = "INVTYPE_WEAPON"
 Emit("PLAYER_EQUIPMENT_CHANGED", 16)
-assert(sealAction.attributes.spell == known["Seal of Command"], "Freeze the preparation action during combat")
+assert(sealAlert.icon.texture == known["Seal of Command"], "Keep the base seal recommendation during combat")
+assert(sealAlert:IsShown() and FindText("Check seal") and FindText("Status restricted"))
 restrictedBuffs = false
 combat = false
 activeBuffs = {}
@@ -217,18 +217,57 @@ Emit("PLAYER_REGEN_ENABLED")
 assert(FindText("Seal: Missing"))
 assert(FindText("Blessing: Missing"))
 assert(FindText("Aura: Missing"))
-assert(FindText("Apply: Seal of Righteousness"))
-assert(sealAction.attributes.spell == known["Seal of Righteousness"], "Refresh the seal after weapon changes outside combat")
+assert(sealAlert:IsShown() and FindText("Seal missing") and FindText("Seal of Righteousness"))
+assert(sealAlert.icon.texture == known["Seal of Righteousness"], "Refresh the base seal after weapon changes outside combat")
+assert(sealAlert.mouseEnabled)
+sealAlert.scripts.OnDragStart(sealAlert)
+assert(sealAlert.moving)
+sealAlert.scripts.OnDragStop(sealAlert)
+assert(not sealAlert.moving)
 activeBuffs["Seal of Righteousness"] = true
 Emit("UNIT_AURA", secret)
 assert(FindText("Seal: Righteousness"), "UNIT_AURA updates must not inspect a potentially secret payload")
-assert(FindText("Base seal: Seal of Righteousness"), "Applying the seal must clear the missing-seal instruction")
+assert(not sealAlert:IsShown(), "Applying a seal must hide the independent reminder")
 Emit("SPELL_UPDATE_COOLDOWN")
 Emit("UNIT_POWER_UPDATE", "player")
 SlashCmdList.MYPALLADIN("")
 assert(not panel:IsShown())
 SlashCmdList.MYPALLADIN("")
 assert(panel:IsShown())
+-- Aura events keep the combat reminder current with the management panel closed.
+SlashCmdList.MYPALLADIN("")
+assert(not panel:IsShown())
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
+assert(not sealAlert:IsShown())
+assert(not sealAlert.mouseEnabled, "Combat reminders must let mouse clicks pass through")
+sealAlert.scripts.OnDragStart(sealAlert)
+assert(not sealAlert.moving, "The reminder must not start dragging in combat")
+for _ = 1, 3 do
+    activeBuffs["Seal of Righteousness"] = nil
+    Emit("UNIT_AURA", secret)
+    assert(not panel:IsShown() and sealAlert:IsShown() and FindText("Seal missing"))
+    assert(FindText("Use your action bar"))
+    activeBuffs["Seal of Righteousness"] = true
+    Emit("UNIT_AURA", secret)
+    assert(not sealAlert:IsShown(), "Every reapplication must clear the reminder during combat")
+end
+activeBuffs = { ["Seal of the Crusader"] = true }
+Emit("UNIT_AURA", secret)
+assert(not sealAlert:IsShown(), "Another active seal must not trigger a replacement instruction")
+restrictedBuffs = true
+Emit("UNIT_AURA", secret)
+assert(sealAlert:IsShown() and FindText("Check seal") and FindText("Status restricted"))
+assert(not FindText("Seal missing"), "Restricted data must not leave a stale missing-seal assertion")
+local auraAPI = C_UnitAuras
+C_UnitAuras = nil
+Emit("UNIT_AURA", secret)
+assert(sealAlert:IsShown() and FindText("Status unavailable"))
+C_UnitAuras = auraAPI
+combat, restrictedBuffs = false, false
+Emit("PLAYER_REGEN_ENABLED")
+assert(not sealAlert:IsShown() and not panel:IsShown())
+SlashCmdList.MYPALLADIN("")
 C_Spell.GetSpellCooldownDuration = nil
 Emit("SPELL_UPDATE_COOLDOWN")
 assert(FindText("Cooldown unavailable"), "Missing APIs must not imply ready abilities")
@@ -236,7 +275,7 @@ local originalSpellLookup = C_SpellBook.FindSpellBookSlotForSpell
 C_SpellBook.FindSpellBookSlotForSpell = function() return nil end
 Emit("SPELLS_CHANGED")
 assert(FindText("No cooldowns shown. Check Settings or train abilities."):IsShown())
-assert(sealAction.disabled and sealAction.attributes.spell == nil and sealAction.attributes.type1 == nil)
+assert(not sealAlert:IsShown(), "No learned damage seal must hide the reminder")
 for _, frame in ipairs(frames) do
     if frame.cooldown then assert(not frame:IsShown()) end
 end
@@ -307,9 +346,9 @@ end
 assert(displayed == 1)
 activeBuffs = {}
 SetCheck("Highlight missing buffs", false)
-assert(FindText("Seal: Missing").textColor[1] == 0.7 and FindText("Base seal: Seal of Righteousness"))
+assert(not sealAlert:IsShown() and FindText("Blessing: Missing").textColor[1] == 0.7)
 SetCheck("Highlight missing buffs", true)
-assert(FindText("Seal: Missing").textColor[1] == 1 and FindText("Apply: Seal of Righteousness"))
+assert(sealAlert:IsShown() and FindText("Blessing: Missing").textColor[1] == 1)
 UnitPower = function() return 25 end
 UnitPowerMax = function() return 100 end
 FindText("+").scripts.OnClick()
@@ -346,13 +385,13 @@ local combatAddon = LoadProfiles()
 assert(loadfile("MyPalladin/MyPalladin.lua"))("MyPalladin", combatAddon)
 local combatEvents = frames[firstCombatFrame]
 combatEvents.scripts.OnEvent(combatEvents, "ADDON_LOADED", "MyPalladin")
-local combatSealButton
+local combatSealAlert
 for index = firstCombatFrame, #frames do
-    if frames[index].name == "MyPalladinSealButton" then combatSealButton = frames[index] end
+    if frames[index].name == "MyPalladinSealAlert" then combatSealAlert = frames[index] end
 end
-assert(combatSealButton.disabled and combatSealButton.attributes.spell == nil, "Reloading in combat must not configure a cast")
-assert(FindText("Seal recommendation after combat"))
+assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"],
+    "Reloading in combat must show a learned fallback without inspecting equipment")
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
-assert(not combatSealButton.disabled and combatSealButton.attributes.spell == known["Seal of Righteousness"])
-print("OK: profile settings UI, mana/buff warnings, filtered cooldowns/preparation and combat-safe refresh/reload")
+assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"])
+print("OK: per-profile settings, independent seal alerts, repeated combat renewal and safe restrictions/reload")
