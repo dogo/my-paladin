@@ -1,0 +1,46 @@
+{
+  "reviewed_on": "2026-11-14",
+  "patch": "1.60.1",
+  "pages": [
+    {
+      "slug": "overview-pve-dps",
+      "title": "Overview",
+      "impact": "Mecânicas compartilhadas pelos três perfis"
+    },
+    {
+      "slug": "talent-builds-pve-dps",
+      "title": "Talents & Builds",
+      "impact": "Talentos e diferenças entre builds"
+    },
+    {
+      "slug": "rotation-cooldowns-pve-dps",
+      "title": "Rotation",
+      "impact": "Prioridades, selos e cooldowns"
+    },
+    {
+      "slug": "enchants-consumables-pve-dps",
+      "title": "Enchants & Consumables",
+      "impact": "Preparação de Leveling, Dungeon e Raid"
+    },
+    {
+      "slug": "stat-priority-pve-dps",
+      "title": "Stat Priority",
+      "impact": "Orientações de atributos e equipamentos"
+    },
+    {
+      "slug": "dps-leveling-tips",
+      "title": "Leveling",
+      "impact": "Perfil Leveling e habilidades aprendidas"
+    },
+    {
+      "slug": "bis-gear",
+      "title": "Best-in-Slot Gear",
+      "impact": "Equipamentos; conferir dados provisórios"
+    },
+    {
+      "slug": "dps-abilities",
+      "title": "Abilities",
+      "impact": "Habilidades e restrições de uso nos três perfis"
+    }
+  ]
+}

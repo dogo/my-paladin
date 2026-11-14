@@ -1,0 +1,10 @@
+[Unit]
+Description=Check My Palladin Wowhead guide changes
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dogo/Development/poc/my-palladin
+ExecStart=/usr/bin/python /home/dogo/Development/poc/my-palladin/scripts/check_guides.py
+SuccessExitStatus=2
+TimeoutStartSec=5min
+UMask=0077

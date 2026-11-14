@@ -1,0 +1,8 @@
+.guide-monitor/
+__pycache__/
+*.pyc
+.code-review-graph/
+.agents/
+.codex/
+.aws/
+dist/
