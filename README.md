@@ -1,6 +1,18 @@
 # My Palladin
 
-Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.3.1**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. O novo clique de preparação e o comportamento durante combate ainda precisam de validação no cliente.
+Companion para Retribution PvE em **WoW: Forever 1.60.1**, cliente em inglês. Ambiente informado: build **70938**, servidor PvE. Versão **0.4.0**. O usuário confirmou por imagem o painel compacto da 0.3, com bênção Might e aura Retribution detectadas. A janela de configurações, o clique de preparação e o comportamento durante combate ainda precisam de validação no cliente.
+
+## Novidades da 0.4: configurações por perfil
+
+Abra **Settings** no painel ou use `/mp settings`. Escolha Leveling, Dungeon ou Raid: a seleção também ativa o perfil, e cada um salva suas próprias preferências para este personagem:
+
+- Painel compacto ou expandido.
+- Destaque de buffs ausentes. Desativar mantém o estado visível em cinza e remove a instrução **Apply**.
+- Alerta de mana ativado/desativado e limite de 0 a 100%, ajustado em passos de 5. O padrão continua 20%; o alerta dispara abaixo do limite, quando os valores estão acessíveis.
+- Quais cooldowns da lista do perfil aparecem. Habilidades não aprendidas continuam ocultas mesmo se marcadas.
+- Quais lembretes entram na preparação e se a lista aparece no painel expandido. Nenhum item marcado oculta a seção; o modo compacto mantém a lista oculta.
+
+As alterações são aplicadas imediatamente, sem botão de salvar, e persistem após `/reload` ou saída normal do jogo. A migração preserva o perfil ativo e copia a preferência antiga de compacto para os três perfis; depois disso, cada preferência é independente. Dados salvos inválidos recuperam os padrões sem apagar os outros campos do personagem.
 
 ## Qual selo usar
 
@@ -16,10 +28,10 @@ A velocidade vem do tooltip em inglês da arma equipada, não da velocidade de a
 
 ## Novidades da 0.3
 
-- Painel compacto por padrão; **Expand/Compact** ou `/mp compact` alterna o modo. A preferência fica salva por personagem junto do perfil ativo.
+- Painel compacto por padrão; **Expand/Compact** ou `/mp compact` alterna o modo. Desde a 0.4, a preferência fica salva por personagem e perfil.
 - Habilidades não aprendidas são ocultadas; o painel se ajusta à quantidade exibida e atualiza ao aprender habilidades.
 - Selo, bênção e aura do jogador aparecem em três indicadores: verde para ativo, laranja para ausente, cinza para **Restricted/Unavailable**. A leitura verifica a restrição do spell antes da consulta; dados inacessíveis não geram aviso de buff ausente. Não reutiliza o último estado conhecido durante combate.
-- Mana mostra porcentagem e muda para laranja abaixo de 20%, quando os valores permitem cálculo. Com valores protegidos, mantém a barra nativa e o texto **Mana**, sem tentar calcular alertas. O limite de 20% é uma escolha inicial do addon, não uma regra extraída do guia.
+- Mana mostra porcentagem e muda para laranja abaixo do limite configurado, quando o alerta está ativado e os valores permitem cálculo. Com valores protegidos, mantém a barra nativa e o texto **Mana**, sem tentar calcular alertas. O padrão de 20% é uma escolha inicial do addon, não uma regra extraída do guia.
 
 O acompanhamento considera os sete selos, as bênçãos Might/Wisdom/Kings e as seis auras descritas no guia. Reconhecer uma dessas bênçãos não confirma a atribuição ideal para o grupo. Não inclui buffs de camping equivalentes, Forbearance, ecos ou previsão da próxima habilidade.
 
@@ -53,6 +65,7 @@ Comandos:
 /mp dungeon    Ativa o perfil Dungeon
 /mp raid       Ativa o perfil Raid
 /mp compact    Alterna entre painel compacto e completo
+/mp settings   Abre ou fecha as configurações do perfil
 ```
 
 Arraste o painel para mover. Os textos da interface e os nomes das habilidades estão em inglês.
@@ -111,12 +124,15 @@ Sem dependências externas:
 ```sh
 luajit tests/profiles_test.lua
 luajit tests/player_state_test.lua
+luajit tests/profile_settings_test.lua
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Os testes Lua cobrem recuperação de configurações inválidas, persistência de perfil e modo compacto, isolamento entre personagens, habilidades aprendidas, layout vazio, atualização de buffs ao entrar/sair de combate, distinção entre ausente e restrito, falhas das APIs, limiar de mana e encaminhamento de valores opacos aos widgets. A recomendação de selo cobre armas rápidas/lentas/de uma mão, Holy Shock, dados ausentes e preservação da ação em combate. Os atributos do botão e a manutenção do handler nativo são conferidos; a simulação não comprova o lançamento real no jogo.
+Os testes Lua cobrem migração e recuperação de configurações inválidas, persistência e isolamento entre perfis/personagens, callbacks da janela Settings, seleção de habilidades/lembretes, layout vazio, atualização de buffs ao entrar/sair de combate, distinção entre ausente e restrito, falhas das APIs, limiar de mana configurável e encaminhamento de valores opacos aos widgets. A recomendação de selo cobre armas rápidas/lentas/de uma mão, Holy Shock, dados ausentes e preservação da ação em combate. Os atributos do botão e a manutenção do handler nativo são conferidos; a simulação não comprova o lançamento real no jogo.
 
-Para validar a 0.3.1: use `/reload`, confira o nome/ícone do selo recomendado e clique nele fora de combate. O indicador de selo deve ficar verde e **Apply** deve mudar para **Base seal**. Alterne `/mp compact` e troque a arma para conferir a recomendação. Faça uma luta usando Judgement e Holy Strike; confira os cooldowns e a barra de mana. O clique de preparação não deve lançar habilidades em combate. Durante restrições, os indicadores devem ficar cinza, sem afirmar ausência. Depois de sair do combate, devem voltar ao estado atual.
+Para validar a 0.4: use `/reload` e `/mp settings`. Em Dungeon, altere o limite de mana e desmarque uma habilidade aprendida; em Leveling, confira que essas preferências continuam como antes. Volte a Dungeon e confirme os valores; faça outro `/reload` e confirme a persistência. Expanda o painel para conferir a seleção de lembretes e a opção de ocultar a preparação.
+
+Confira também o nome/ícone do selo recomendado e clique nele fora de combate. O indicador de selo deve ficar verde e **Apply** deve mudar para **Base seal**, quando os destaques estiverem ativados. Troque a arma para conferir a recomendação. Faça uma luta usando Judgement e Holy Strike; confira os cooldowns e a barra de mana. O clique de preparação não deve lançar habilidades em combate. Durante restrições, os indicadores devem ficar cinza, sem afirmar ausência. Depois de sair do combate, devem voltar ao estado atual.
 
 Os testes do monitor usam fixtures HTML representativas e respostas simuladas: extração de subseções, rejeição de bloqueios, links adicionais, primeira captura, diferenças persistentes, aceitação manual, notificações e preservação após erros. A primeira consulta real extraiu o markup dos oito artigos; ele inclui as abas e os payloads de talentos disponíveis no HTML, mas não comprova o funcionamento de todos os widgets interativos.
 

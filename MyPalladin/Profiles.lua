@@ -5,7 +5,7 @@ addon.profiles = {
     leveling = {
         name = "Leveling",
         focus = "Save mana between pulls. Use Consecration for groups when mana permits.",
-        preparation = "Prepare: food, drinking water, a weapon buff and your chosen Blessing.",
+        preparation = { "Food", "Drinking water", "Weapon buff", "Chosen Blessing" },
         spells = {
             "Judgement", "Holy Strike", "Hammer of Wrath", "Exorcism",
             "Consecration", "Holy Light", "Divine Shield", "Lay on Hands",
@@ -14,7 +14,7 @@ addon.profiles = {
     dungeon = {
         name = "Dungeon",
         focus = "Use Consecration for packs when mana permits. Save control for dangerous enemies.",
-        preparation = "Prepare: agree on Blessings and Aura with your group; carry Mana Potions.",
+        preparation = { "Agree on Blessings", "Agree on Aura", "Mana Potions" },
         spells = {
             "Judgement", "Holy Strike", "Hammer of Wrath", "Exorcism",
             "Consecration", "Cleanse", "Hammer of Justice", "Blessing of Protection",
@@ -23,7 +23,7 @@ addon.profiles = {
     raid = {
         name = "Raid",
         focus = "Use the same damage core. Coordinate Blessings, Auras and support with your raid.",
-        preparation = "Prepare: assigned Blessing/Aura, food, weapon buff, elixirs and Mana Potions.",
+        preparation = { "Assigned Blessing/Aura", "Food", "Weapon buff", "Elixirs", "Mana Potions" },
         spells = {
             "Judgement", "Holy Strike", "Hammer of Wrath", "Exorcism",
             "Consecration", "Cleanse", "Blessing of Freedom", "Blessing of Protection",
@@ -41,6 +41,25 @@ function addon.Initialize(saved)
     if type(saved.compact) ~= "boolean" then
         saved.compact = true
     end
+    if type(saved.profileSettings) ~= "table" then saved.profileSettings = {} end
+    for _, id in ipairs(addon.profileOrder) do
+        local settings = saved.profileSettings[id]
+        if type(settings) ~= "table" then settings = {} end
+        local defaults = { compact = saved.compact, buffWarnings = true, manaWarning = true, showPreparation = true }
+        for key, value in pairs(defaults) do
+            if type(settings[key]) ~= "boolean" then settings[key] = value end
+        end
+        if type(settings.manaThreshold) ~= "number" or not (settings.manaThreshold >= 0 and settings.manaThreshold <= 100) then
+            settings.manaThreshold = 20
+        end
+        for _, key in ipairs({ "hiddenSpells", "hiddenPreparation" }) do
+            if type(settings[key]) ~= "table" then settings[key] = {} end
+            for name, hidden in pairs(settings[key]) do
+                if type(hidden) ~= "boolean" then settings[key][name] = nil end
+            end
+        end
+        saved.profileSettings[id] = settings
+    end
     addon.db = saved
     return saved
 end
@@ -55,4 +74,17 @@ end
 
 function addon.GetProfile()
     return addon.profiles[addon.db.activeProfile]
+end
+
+function addon.GetSettings()
+    return addon.db.profileSettings[addon.db.activeProfile]
+end
+
+function addon.GetPreparationText()
+    local items = {}
+    local hidden = addon.GetSettings().hiddenPreparation
+    for _, item in ipairs(addon.GetProfile().preparation) do
+        if not hidden[item] then items[#items + 1] = item end
+    end
+    if #items > 0 then return "Prepare: " .. table.concat(items, "; ") .. "." end
 end

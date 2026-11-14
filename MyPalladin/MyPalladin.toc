@@ -1,7 +1,7 @@
 ## Interface: 16001
 ## Title: My Palladin
 ## Notes: Retribution PvE companion with Leveling, Dungeon and Raid profiles.
-## Version: 0.3.1
+## Version: 0.4.0
 ## SavedVariablesPerCharacter: MyPalladinDB
 
 GuideInfo.lua

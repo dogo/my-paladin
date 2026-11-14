@@ -4,6 +4,9 @@ local cards, buttons, buffLabels = {}, {}, {}
 local learnedCount = 0
 local Layout
 local sealAction, sealName, sealHelp, recommendedSeal, sealReason
+local settingsPanel, settingsHeading, thresholdLabel, thresholdMinus, thresholdPlus
+local settingsChecks, spellChecks, preparationChecks, settingsButtons = {}, {}, {}, {}
+local RefreshSettings
 
 local function Say(message)
     print("|cffffca65My Palladin:|r " .. message)
@@ -14,7 +17,7 @@ local function UpdateMana()
     local current, maximum = UnitPower("player", 0), UnitPowerMax("player", 0)
     mana:SetMinMaxValues(0, maximum)
     mana:SetValue(current)
-    local text, low = addon.GetManaText(current, maximum)
+    local text, low = addon.GetManaText(current, maximum, addon.GetSettings())
     manaLabel:SetText(text)
     if low then
         mana:SetStatusBarColor(0.85, 0.3, 0.08)
@@ -24,6 +27,7 @@ local function UpdateMana()
 end
 
 local function UpdateBuffs()
+    local warn = addon.GetSettings().buffWarnings
     for index, group in ipairs(addon.buffGroups) do
         local status, name = addon.GetBuffStatus(group)
         local label = buffLabels[index]
@@ -32,13 +36,13 @@ local function UpdateBuffs()
             label:SetTextColor(0.4, 1, 0.4)
         elseif status == "missing" then
             label:SetText(group.label .. ": Missing")
-            label:SetTextColor(1, 0.5, 0.2)
+            if warn then label:SetTextColor(1, 0.5, 0.2) else label:SetTextColor(0.7, 0.7, 0.7) end
         else
             label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
             label:SetTextColor(0.7, 0.7, 0.7)
         end
         if index == 1 and recommendedSeal then
-            sealName:SetText((status == "missing" and "Apply: " or "Base seal: ") .. recommendedSeal)
+            sealName:SetText((status == "missing" and warn and "Apply: " or "Base seal: ") .. recommendedSeal)
         end
     end
     if sealReason then
@@ -82,10 +86,10 @@ local function UpdateCooldowns()
 end
 
 local function RefreshProfile()
-    local profile = addon.GetProfile()
+    local profile, settings = addon.GetProfile(), addon.GetSettings()
     heading:SetText("Active profile: " .. profile.name .. "  |  Level " .. UnitLevel("player"))
     focus:SetText(profile.focus)
-    preparation:SetText(profile.preparation)
+    preparation:SetText(addon.GetPreparationText() or "")
     for id, button in pairs(buttons) do
         if id == addon.db.activeProfile then
             button:Disable()
@@ -95,7 +99,7 @@ local function RefreshProfile()
     end
     learnedCount = 0
     for _, name in ipairs(profile.spells) do
-        local info = addon.GetLearnedSpell(name)
+        local info = not settings.hiddenSpells[name] and addon.GetLearnedSpell(name)
         if info and info.spellID then
             learnedCount = learnedCount + 1
             local card = cards[learnedCount]
@@ -117,6 +121,7 @@ local function RefreshProfile()
     UpdateCooldowns()
     UpdateMana()
     UpdateBuffs()
+    if settingsPanel:IsShown() then RefreshSettings() end
 end
 
 local function ChooseProfile(id)
@@ -137,7 +142,9 @@ local function Text(parent, font, x, y, width)
 end
 
 Layout = function()
-    local compact = addon.db.compact
+    local settings = addon.GetSettings()
+    local compact = settings.compact
+    local showPreparation = not compact and settings.showPreparation and addon.GetPreparationText() ~= nil
     local buffY = compact and 104 or 152
     local sealY = buffY + 36
     local manaY = sealY + 54
@@ -147,7 +154,7 @@ Layout = function()
     local afterCards = cardsY + rows * rowHeight
     mode:SetText(compact and "Expand" or "Compact")
     focus:SetShown(not compact)
-    preparation:SetShown(not compact)
+    preparation:SetShown(showPreparation)
     for index, label in ipairs(buffLabels) do
         label:ClearAllPoints()
         label:SetPoint("TOPLEFT", 16 + (index - 1) * 132, -buffY)
@@ -169,7 +176,7 @@ Layout = function()
     empty:SetShown(learnedCount == 0)
     preparation:ClearAllPoints()
     preparation:SetPoint("TOPLEFT", 16, -afterCards - 8)
-    local footerY = afterCards + (compact and 8 or 58)
+    local footerY = afterCards + (showPreparation and 58 or 8)
     footer:ClearAllPoints()
     footer:SetPoint("TOPLEFT", 16, -footerY)
     footer:SetText(compact and "Drag to move | /mp to toggle" or "Cooldowns and seal prep. Drag to move. /mp to toggle.")
@@ -179,8 +186,111 @@ Layout = function()
 end
 
 local function ToggleCompact()
-    addon.db.compact = not addon.db.compact
-    Layout()
+    local settings = addon.GetSettings()
+    settings.compact = not settings.compact
+    RefreshProfile()
+end
+
+RefreshSettings = function()
+    local profile, settings = addon.GetProfile(), addon.GetSettings()
+    settingsHeading:SetText("Editing profile: " .. profile.name)
+    for id, button in pairs(settingsButtons) do button:SetEnabled(id ~= addon.db.activeProfile) end
+    for key, check in pairs(settingsChecks) do check:SetChecked(settings[key]) end
+    thresholdLabel:SetText(settings.manaThreshold .. "%")
+    thresholdMinus:SetEnabled(settings.manaWarning and settings.manaThreshold > 0)
+    thresholdPlus:SetEnabled(settings.manaWarning and settings.manaThreshold < 100)
+    for index, check in ipairs(spellChecks) do
+        local name = profile.spells[index]
+        check.label:SetText(name)
+        check:SetChecked(not settings.hiddenSpells[name])
+    end
+    for index, check in ipairs(preparationChecks) do
+        local item = profile.preparation[index]
+        check:SetShown(item ~= nil)
+        if item then
+            check.label:SetText(item)
+            check:SetChecked(not settings.hiddenPreparation[item])
+        end
+    end
+end
+
+local function Check(parent, x, y, callback)
+    local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    check:SetSize(24, 24)
+    check:SetPoint("TOPLEFT", x, -y)
+    check.label = Text(check, "GameFontHighlightSmall", 28, -6, 164)
+    check:SetScript("OnClick", callback)
+    return check
+end
+
+local function CreateSettings()
+    settingsPanel = CreateFrame("Frame", "MyPalladinSettings", UIParent, "BackdropTemplate")
+    settingsPanel:Hide()
+    settingsPanel:SetSize(420, 508)
+    settingsPanel:SetPoint("CENTER")
+    settingsPanel:SetClampedToScreen(true)
+    settingsPanel:EnableMouse(true)
+    settingsPanel:SetFrameStrata("DIALOG")
+    settingsPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
+    settingsPanel:SetBackdropColor(0.06, 0.06, 0.07, 0.98)
+    settingsPanel:SetBackdropBorderColor(0.65, 0.48, 0.22, 1)
+    Text(settingsPanel, "GameFontNormalLarge", 16, -14, 350):SetText("My Palladin Settings")
+    local close = CreateFrame("Button", nil, settingsPanel, "UIPanelCloseButton")
+    close:SetPoint("TOPRIGHT", -2, -2)
+    for index, id in ipairs(addon.profileOrder) do
+        local button = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+        button:SetSize(122, 26)
+        button:SetPoint("TOPLEFT", 16 + (index - 1) * 132, -42)
+        button:SetText(addon.profiles[id].name)
+        button:SetScript("OnClick", function() ChooseProfile(id) end)
+        settingsButtons[id] = button
+    end
+    settingsHeading = Text(settingsPanel, "GameFontNormal", 16, -80, 388)
+    local options = {
+        { "compact", "Compact panel" },
+        { "buffWarnings", "Highlight missing buffs" },
+        { "manaWarning", "Warn low mana below" },
+        { "showPreparation", "Show preparation when expanded" },
+    }
+    for index, option in ipairs(options) do
+        local key = option[1]
+        local check = Check(settingsPanel, 16, 104 + (index - 1) * 26, function(self)
+            addon.GetSettings()[key] = self:GetChecked()
+            RefreshProfile()
+        end)
+        check.label:SetWidth(360)
+        check.label:SetText(option[2])
+        settingsChecks[key] = check
+    end
+    thresholdLabel = Text(settingsPanel, "GameFontHighlightSmall", 292, -163, 50)
+    for _, delta in ipairs({ -5, 5 }) do
+        local button = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+        button:SetSize(28, 22)
+        button:SetPoint("TOPLEFT", delta < 0 and 252 or 350, -156)
+        button:SetText(delta < 0 and "-" or "+")
+        button:SetScript("OnClick", function()
+            local settings = addon.GetSettings()
+            settings.manaThreshold = math.max(0, math.min(100, settings.manaThreshold + delta))
+            RefreshProfile()
+        end)
+        if delta < 0 then thresholdMinus = button else thresholdPlus = button end
+    end
+    Text(settingsPanel, "GameFontNormal", 16, -216, 388):SetText("Cooldowns (learned abilities only)")
+    for index = 1, 8 do
+        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 238 + math.floor((index - 1) / 2) * 24, function(self)
+            addon.GetSettings().hiddenSpells[addon.GetProfile().spells[index]] = not self:GetChecked()
+            RefreshProfile()
+        end)
+    end
+    Text(settingsPanel, "GameFontNormal", 16, -346, 388):SetText("Preparation reminders")
+    for index = 1, 5 do
+        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 366 + math.floor((index - 1) / 2) * 24, function(self)
+            addon.GetSettings().hiddenPreparation[addon.GetProfile().preparation[index]] = not self:GetChecked()
+            RefreshProfile()
+        end)
+    end
+    Text(settingsPanel, "GameFontDisableSmall", 16, -466, 388):SetText("Saved automatically for this character and profile.")
+    settingsPanel:SetScript("OnShow", RefreshSettings)
 end
 
 local function CreatePanel()
@@ -205,6 +315,11 @@ local function CreatePanel()
     mode:SetSize(76, 22)
     mode:SetPoint("TOPRIGHT", -38, -10)
     mode:SetScript("OnClick", ToggleCompact)
+    local settingsButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    settingsButton:SetSize(76, 22)
+    settingsButton:SetPoint("TOPRIGHT", -122, -10)
+    settingsButton:SetText("Settings")
+    settingsButton:SetScript("OnClick", function() settingsPanel:SetShown(not settingsPanel:IsShown()) end)
 
     for index, id in ipairs(addon.profileOrder) do
         local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -289,10 +404,11 @@ local function CreatePanel()
     preparation:SetHeight(44)
     preparation:SetJustifyV("TOP")
     empty = Text(panel, "GameFontHighlightSmall", 16, -186, 388)
-    empty:SetText("Train abilities to track their cooldowns.")
+    empty:SetText("No cooldowns shown. Check Settings or train abilities.")
     footer = Text(panel, "GameFontDisableSmall", 16, -450, 388)
     reference = Text(panel, "GameFontDisableSmall", 16, -482, 388)
     reference:SetText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " .. addon.guideInfo.patch)
+    CreateSettings()
     panel:SetScript("OnShow", RefreshProfile)
 end
 
@@ -323,6 +439,8 @@ events:SetScript("OnEvent", function(self, event, unit)
             elseif message == "compact" then
                 ToggleCompact()
                 panel:Show()
+            elseif message == "settings" then
+                settingsPanel:SetShown(not settingsPanel:IsShown())
             else
                 ChooseProfile(message)
             end

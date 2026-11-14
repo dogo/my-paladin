@@ -8,19 +8,26 @@ local secret = setmetatable({}, {
 })
 function issecretvalue(value) return rawequal(value, secret) end
 
-local text, low = addon.GetManaText(15, 100)
+local settings = { manaWarning = true, manaThreshold = 20 }
+local text, low = addon.GetManaText(15, 100, settings)
 assert(text == "Low mana: 15%" and low)
-text, low = addon.GetManaText(20, 100)
+text, low = addon.GetManaText(20, 100, settings)
 assert(text == "Mana: 20%" and not low)
-text, low = addon.GetManaText(100, 100)
+text, low = addon.GetManaText(100, 100, settings)
 assert(text == "Mana: 100%" and not low)
 for _, input in ipairs({ {secret, 100}, {15, secret}, {secret, secret} }) do
-    text, low = addon.GetManaText(input[1], input[2])
+    text, low = addon.GetManaText(input[1], input[2], settings)
     assert(text == "Mana" and not low)
 end
-text, low = addon.GetManaText(0, 0)
+text, low = addon.GetManaText(0, 0, settings)
 assert(text == "Mana unavailable" and not low)
 
+settings.manaThreshold = 40
+text, low = addon.GetManaText(35, 100, settings)
+assert(text == "Low mana: 35%" and low)
+settings.manaWarning = false
+text, low = addon.GetManaText(35, 100, settings)
+assert(text == "Mana: 35%" and not low)
 local seal = addon.buffGroups[1]
 assert(addon.GetBuffStatus(seal) == "unavailable")
 local queries = 0
@@ -57,7 +64,7 @@ assert(status == "active" and name == "Command", "Readable active buff outweighs
 C_Secrets = nil
 assert(addon.GetBuffStatus(seal) == "unavailable")
 issecretvalue = nil
-text, low = addon.GetManaText(15, 100)
+text, low = addon.GetManaText(15, 100, settings)
 assert(text == "Mana" and not low)
 function issecretvalue(value) return rawequal(value, secret) end
 local combat = false

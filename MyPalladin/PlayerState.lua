@@ -100,7 +100,7 @@ function addon.GetBuffStatus(group)
     return "missing"
 end
 
-function addon.GetManaText(current, maximum)
+function addon.GetManaText(current, maximum, settings)
     if not issecretvalue or issecretvalue(current) or issecretvalue(maximum) then
         return "Mana", false
     end
@@ -108,7 +108,6 @@ function addon.GetManaText(current, maximum)
         return "Mana unavailable", false
     end
     local percent = math.floor(current / maximum * 100 + 0.5)
-    -- shortcut: low mana is fixed at 20%; make it per profile when configurable profiles ship.
-    local low = current / maximum < 0.2
+    local low = settings.manaWarning and current / maximum < settings.manaThreshold / 100
     return (low and "Low mana: " or "Mana: ") .. percent .. "%", low
 end

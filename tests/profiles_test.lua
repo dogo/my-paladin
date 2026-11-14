@@ -44,9 +44,13 @@ local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
     "SetMovable EnableMouse RegisterForDrag StartMoving StopMovingOrSizing SetUserPlaced " ..
     "SetBackdrop SetBackdropColor SetBackdropBorderColor SetAllPoints SetDesaturated " ..
-    "SetStatusBarTexture SetStatusBarColor SetColorTexture SetTextColor ClearAllPoints SetHighlightTexture"):gmatch("%S+") do
+    "SetStatusBarTexture SetStatusBarColor SetColorTexture SetTextColor ClearAllPoints SetHighlightTexture SetFrameStrata"):gmatch("%S+") do
     methods[name] = function() end
 end
+function methods:SetEnabled(value) self.disabled = not value end
+function methods:SetChecked(value) self.checked = value end
+function methods:GetChecked() return self.checked end
+function methods:SetTextColor(...) self.textColor = {...} end
 function methods:SetSize(width, height) self.width, self.height = width, height end
 function methods:SetScript(event, callback) self.scripts[event] = callback end
 function methods:SetAttribute(name, value)
@@ -146,7 +150,7 @@ assert(FindText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " 
 assert(not FindText("Not learned"), "Unlearned spells must be hidden")
 assert(MyPalladinDB.compact == true)
 assert(FindText("Expand"))
-assert(not FindText(addon.profiles.dungeon.preparation):IsShown())
+assert(not FindText(addon.GetPreparationText()):IsShown())
 assert(FindText("Seal: Command"))
 assert(FindText("Blessing: Might"))
 assert(FindText("Aura: Retribution"))
@@ -176,11 +180,11 @@ Emit("UNIT_POWER_UPDATE", "player")
 assert(FindText("Mana"), "A previously computed mana percentage must clear when data becomes secret")
 local compactHeight = panel.height
 FindText("Expand").scripts.OnClick()
-assert(MyPalladinDB.compact == false and panel.height > compactHeight)
-assert(FindText(addon.profiles.dungeon.preparation):IsShown())
+assert(addon.GetSettings().compact == false and panel.height > compactHeight)
+assert(FindText(addon.GetPreparationText()):IsShown())
 SlashCmdList.MYPALLADIN("compact")
-assert(MyPalladinDB.compact == true and panel.height == compactHeight)
-assert(FindText(addon.profiles.dungeon.preparation))
+assert(addon.GetSettings().compact == true and panel.height == compactHeight)
+assert(FindText(addon.GetPreparationText()))
 local utilityCard
 for _, frame in ipairs(frames) do
     if frame.spellID == known["Hammer of Justice"] then utilityCard = frame end
@@ -191,7 +195,7 @@ assert(MyPalladinDB.activeProfile == "raid")
 assert(FindText("Active profile: Raid  |  Level 25"))
 assert(FindText("Raid").disabled and not FindText("Dungeon").disabled)
 assert(utilityCard.spellID == known["Blessing of Freedom"], "Profile switch must update tracked spells")
-assert(FindText(addon.profiles.raid.preparation))
+assert(FindText(addon.GetPreparationText()))
 SlashCmdList.MYPALLADIN("unknown")
 assert(MyPalladinDB.activeProfile == "raid")
 FindText("Leveling").scripts.OnClick()
@@ -231,19 +235,111 @@ assert(FindText("Cooldown unavailable"), "Missing APIs must not imply ready abil
 local originalSpellLookup = C_SpellBook.FindSpellBookSlotForSpell
 C_SpellBook.FindSpellBookSlotForSpell = function() return nil end
 Emit("SPELLS_CHANGED")
-assert(FindText("Train abilities to track their cooldowns."):IsShown())
+assert(FindText("No cooldowns shown. Check Settings or train abilities."):IsShown())
 assert(sealAction.disabled and sealAction.attributes.spell == nil and sealAction.attributes.type1 == nil)
 for _, frame in ipairs(frames) do
     if frame.cooldown then assert(not frame:IsShown()) end
 end
 C_SpellBook.FindSpellBookSlotForSpell = originalSpellLookup
 Emit("SPELLS_CHANGED")
-assert(not FindText("Train abilities to track their cooldowns."):IsShown())
+assert(not FindText("No cooldowns shown. Check Settings or train abilities."):IsShown())
 for _, frame in ipairs(frames) do
     if frame.cooldown then
         assert((frame.spellID ~= nil) == frame:IsShown(), "Only learned spell cards may be shown")
     end
 end
+local settingsPanel
+for _, frame in ipairs(frames) do
+    if frame.name == "MyPalladinSettings" then settingsPanel = frame end
+end
+assert(settingsPanel and not settingsPanel:IsShown())
+FindText("Settings").scripts.OnClick()
+assert(settingsPanel:IsShown() and FindText("Editing profile: Leveling"))
+local function SetCheck(caption, checked)
+    local check = FindText(caption).parent
+    assert(check.kind == "CheckButton")
+    check:SetChecked(checked)
+    check.scripts.OnClick(check)
+end
+local function SettingsProfile(name)
+    for _, frame in ipairs(frames) do
+        if frame.parent == settingsPanel and frame.text == name then
+            frame.scripts.OnClick()
+            return
+        end
+    end
+    error("Missing settings profile button")
+end
+local levelingSettings = addon.GetSettings()
+SetCheck("Compact panel", false)
+assert(not levelingSettings.compact and FindText(addon.GetPreparationText()):IsShown())
+local expandedHeight = panel.height
+SetCheck("Show preparation when expanded", false)
+assert(not FindText(addon.GetPreparationText()):IsShown() and panel.height < expandedHeight)
+SetCheck("Show preparation when expanded", true)
+SetCheck("Food", false)
+assert(levelingSettings.hiddenPreparation.Food and not addon.GetPreparationText():find("Food"))
+local preparationFrame = FindText(addon.GetPreparationText())
+for _, item in ipairs(addon.GetProfile().preparation) do SetCheck(item, false) end
+assert(addon.GetPreparationText() == nil and not preparationFrame:IsShown())
+-- Captions for spells also appear on cooldown cards; select the checkbox caption explicitly.
+local function SetSpell(name, checked)
+    for _, frame in ipairs(frames) do
+        if frame.text == name and frame.parent.kind == "CheckButton" then
+            frame.parent:SetChecked(checked)
+            frame.parent.scripts.OnClick(frame.parent)
+            return
+        end
+    end
+    error("Missing spell checkbox")
+end
+for _, name in ipairs(addon.GetProfile().spells) do SetSpell(name, false) end
+assert(FindText("No cooldowns shown. Check Settings or train abilities."):IsShown())
+for _, frame in ipairs(frames) do if frame.cooldown then assert(not frame:IsShown()) end end
+SetSpell("Judgement", true)
+local displayed = 0
+for _, frame in ipairs(frames) do
+    if frame.cooldown and frame:IsShown() then
+        displayed = displayed + 1
+        assert(frame.spellID == known.Judgement)
+    end
+end
+assert(displayed == 1)
+activeBuffs = {}
+SetCheck("Highlight missing buffs", false)
+assert(FindText("Seal: Missing").textColor[1] == 0.7 and FindText("Base seal: Seal of Righteousness"))
+SetCheck("Highlight missing buffs", true)
+assert(FindText("Seal: Missing").textColor[1] == 1 and FindText("Apply: Seal of Righteousness"))
+UnitPower = function() return 25 end
+UnitPowerMax = function() return 100 end
+FindText("+").scripts.OnClick()
+assert(levelingSettings.manaThreshold == 25 and FindText("Mana: 25%"))
+FindText("+").scripts.OnClick()
+assert(levelingSettings.manaThreshold == 30 and FindText("Low mana: 25%"))
+SetCheck("Warn low mana below", false)
+assert(FindText("Mana: 25%") and FindText("+").disabled and FindText("-").disabled)
+SetCheck("Warn low mana below", true)
+for _ = 1, 30 do FindText("-").scripts.OnClick() end
+assert(levelingSettings.manaThreshold == 0 and FindText("-").disabled)
+for _ = 1, 30 do FindText("+").scripts.OnClick() end
+assert(levelingSettings.manaThreshold == 100 and FindText("+").disabled)
+SettingsProfile("Dungeon")
+assert(addon.GetSettings().compact and addon.GetSettings().manaThreshold == 20)
+assert(FindText("Editing profile: Dungeon"))
+assert(FindText("Compact panel").parent:GetChecked())
+assert(FindText("Low mana: 25%") == nil, "Switching profile must clear the previous mana warning")
+SettingsProfile("Leveling")
+assert(addon.GetSettings() == levelingSettings and not levelingSettings.compact)
+assert(FindText("100%") and FindText("Low mana: 25%"))
+local savedSettings = LoadProfiles()
+savedSettings.Initialize(MyPalladinDB)
+assert(savedSettings.GetSettings().manaThreshold == 100)
+assert(savedSettings.GetSettings().hiddenSpells["Holy Strike"])
+assert(savedSettings.GetSettings().hiddenPreparation.Food)
+SlashCmdList.MYPALLADIN("settings")
+assert(not settingsPanel:IsShown())
+SlashCmdList.MYPALLADIN("settings")
+assert(settingsPanel:IsShown())
 local firstCombatFrame = #frames + 1
 combat, restrictedBuffs = true, true
 local combatAddon = LoadProfiles()
@@ -259,4 +355,4 @@ assert(FindText("Seal recommendation after combat"))
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
 assert(not combatSealButton.disabled and combatSealButton.attributes.spell == known["Seal of Righteousness"])
-print("OK: profiles, compact layout, buff events, preparation button and combat-safe refresh/reload")
+print("OK: profile settings UI, mana/buff warnings, filtered cooldowns/preparation and combat-safe refresh/reload")

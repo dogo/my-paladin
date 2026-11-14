@@ -47,7 +47,9 @@ Se houver distribuição, a política oficial exige addon gratuito e código vis
 
 ## Primeira implementação
 
-O addon em `MyPalladin/` usa `SavedVariablesPerCharacter` para salvar o perfil ativo e, desde a 0.3, o modo compacto. Usa o spellbook para obter os IDs/ranks aprendidos, sem inventar IDs das habilidades. Consulta `C_SpellBook.FindSpellBookSlotForSpell` e `GetSpellBookItemInfo`, documentadas no [ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua).
+O addon em `MyPalladin/` usa `SavedVariablesPerCharacter` para salvar o perfil ativo e, desde a 0.3, o modo compacto. A 0.4 mantém preferências separadas em `profileSettings.leveling`, `.dungeon` e `.raid`, validando os dados salvos e migrando a preferência antiga de compacto. Usa o spellbook para obter os IDs/ranks aprendidos, sem inventar IDs das habilidades. Consulta `C_SpellBook.FindSpellBookSlotForSpell` e `GetSpellBookItemInfo`, documentadas no [ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SpellBookDocumentation.lua).
+
+A janela Settings usa checkboxes nativos. `GetChecked` retorna booleano e `SetChecked` recebe booleano, conforme a [documentação gerada de CheckButton do ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleCheckboxAPIDocumentation.lua). As preferências só filtram a apresentação e os alertas sobre dados já acessíveis; a verificação de valores secretos continua anterior a qualquer cálculo de mana. O limite padrão é 20%, configurável por perfil. A janela ainda precisa de validação visual na build 70938.
 
 Para exibição, encaminha objetos de duração ao widget de cooldown e valores de mana ao StatusBar, sem calcular prioridades a partir deles. Não há leitura do combat log. Perfil e escolhas do usuário ficam separados desses valores de combate. APIs ausentes geram mensagens explícitas.
 
