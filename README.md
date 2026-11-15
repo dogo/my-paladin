@@ -128,6 +128,7 @@ python -m unittest discover -s tests -p 'test_*.py'
 
 ## Documentação
 
+- [Roadmap e validações pendentes](docs/roadmap.md)
 - [Monitoramento e revisão dos guias](docs/manutencao.md)
 - [Pesquisa do guia de Forever](docs/guia-wowhead.md)
 - [Cobertura das fontes](docs/cobertura-guia.md)
