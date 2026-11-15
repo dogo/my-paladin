@@ -1,5 +1,5 @@
 local addon = {}
-assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
+assert(loadfile("MyPaladin/PlayerState.lua"))("MyPaladin", addon)
 local settings = { echoGuidance = true }
 function addon.GetSettings() return settings end
 local learned = {

@@ -63,8 +63,8 @@ class MonitorTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         self.config = json.loads((ROOT / "guides.json").read_text())
         (self.root / "guides.json").write_text(json.dumps(self.config))
-        (self.root / "MyPalladin").mkdir()
-        self.rules = self.root / "MyPalladin/Profiles.lua"
+        (self.root / "MyPaladin").mkdir()
+        self.rules = self.root / "MyPaladin/Profiles.lua"
         self.rules.write_text("original rules")
         self.original = monitor.extract_article(page())
         self.fetch = lambda url: self.original.copy()
@@ -78,7 +78,7 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(len(state["latest"]), 8)
         self.assertEqual(state["reviewed"], {})
         self.assertEqual(json.loads((self.root / "guides.json").read_text()), self.config)
-        self.assertFalse((self.root / "MyPalladin/GuideInfo.lua").exists())
+        self.assertFalse((self.root / "MyPaladin/GuideInfo.lua").exists())
         self.assertEqual(self.rules.read_text(), "original rules")
 
     def test_changes_remain_pending_on_every_check_until_manual_acceptance(self):
@@ -94,7 +94,7 @@ class MonitorTests(unittest.TestCase):
         self.assertEqual(self.rules.read_text(), "original rules")
         monitor.accept(self.root, "1.60.2")
         self.assertEqual(monitor.check(self.root, fetch), 0)
-        self.assertIn('patch = "1.60.2"', (self.root / "MyPalladin/GuideInfo.lua").read_text())
+        self.assertIn('patch = "1.60.2"', (self.root / "MyPaladin/GuideInfo.lua").read_text())
         self.assertEqual(len(list((self.root / ".guide-monitor/history").glob("*.md"))), 5)
 
     def test_failed_fetch_preserves_snapshots_and_blocks_acceptance(self):

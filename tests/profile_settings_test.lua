@@ -1,6 +1,6 @@
 local function Load(saved)
     local addon = {}
-    assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
+    assert(loadfile("MyPaladin/Profiles.lua"))("MyPaladin", addon)
     addon.Initialize(saved)
     return addon
 end
@@ -14,6 +14,7 @@ for _, id in ipairs(addon.profileOrder) do
     assert(not settings.compact and settings.buffWarnings and settings.manaWarning and settings.showPreparation)
     assert(settings.manaThreshold == 20 and not settings.crusaderOpener and settings.echoGuidance)
     assert(settings.blessing == "any" and settings.aura == "any")
+    assert(settings.combatMode == "single" and settings.combatHints)
     assert(next(settings.hiddenSpells) == nil and next(settings.hiddenPreparation) == nil)
 end
 addon.SelectProfile("leveling")
@@ -21,6 +22,7 @@ local leveling = addon.GetSettings()
 leveling.compact, leveling.manaThreshold, leveling.buffWarnings = true, 35, false
 leveling.crusaderOpener, leveling.echoGuidance = true, false
 leveling.blessing, leveling.aura = "Blessing of Might", "Retribution Aura"
+leveling.combatMode, leveling.combatHints = "aoe", false
 leveling.hiddenSpells.Judgement = true
 leveling.hiddenPreparation.Food = true
 assert(not addon.GetPreparationText():find("Food") and addon.GetPreparationText():find("Drinking water"))
@@ -31,12 +33,14 @@ assert(addon.GetSettings() ~= leveling and addon.GetSettings().manaThreshold == 
 assert(not addon.GetSettings().hiddenSpells.Judgement and not addon.GetSettings().crusaderOpener and addon.GetSettings().echoGuidance)
 assert(not addon.GetSettings().compact and addon.GetSettings().buffWarnings)
 assert(addon.GetSettings().blessing == "any" and addon.GetSettings().aura == "any")
+assert(addon.GetSettings().combatMode == "single" and addon.GetSettings().combatHints)
 addon.SelectProfile("leveling")
 local reloaded = Load(legacy)
 assert(reloaded.GetSettings() == leveling and leveling.manaThreshold == 35)
 assert(leveling.hiddenSpells.Judgement and not leveling.buffWarnings and reloaded.GetSettings().crusaderOpener)
 assert(not reloaded.GetSettings().echoGuidance and Load(nil).GetSettings().echoGuidance)
 assert(reloaded.GetSettings().blessing == "Blessing of Might" and reloaded.GetSettings().aura == "Retribution Aura")
+assert(reloaded.GetSettings().combatMode == "aoe" and not reloaded.GetSettings().combatHints)
 local other = Load(nil)
 assert(other.GetSettings().compact and not other.GetSettings().hiddenSpells.Judgement)
 assert(other.GetSettings().hiddenSpells ~= leveling.hiddenSpells)
@@ -44,12 +48,14 @@ for _, invalid in ipairs({ "bad", -1, 101, 0/0, math.huge, -math.huge }) do
     local recovered = Load({ profileSettings = { leveling = {
         compact = "false", crusaderOpener = "true", echoGuidance = "false", manaWarning = 1, buffWarnings = {}, showPreparation = "bad",
         blessing = {}, aura = "Sanctity Aura",
+        combatMode = "auto", combatHints = 1,
         manaThreshold = invalid, hiddenSpells = { Judgement = "true", Exorcism = true }, hiddenPreparation = 2,
     }, dungeon = "bad" } })
     local settings = recovered.GetSettings()
     assert(settings.compact and settings.manaWarning and settings.buffWarnings and settings.showPreparation)
     assert(settings.manaThreshold == 20 and settings.hiddenSpells.Judgement == nil and not settings.crusaderOpener and settings.echoGuidance)
     assert(settings.blessing == "any" and settings.aura == "any")
+    assert(settings.combatMode == "single" and settings.combatHints)
     assert(settings.hiddenSpells.Exorcism and next(settings.hiddenPreparation) == nil)
     recovered.SelectProfile("dungeon")
     assert(recovered.GetSettings().manaThreshold == 20)

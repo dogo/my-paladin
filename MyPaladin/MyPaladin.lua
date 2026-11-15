@@ -7,6 +7,7 @@ local sealAlert, sealTitle, sealName, sealHelp, recommendedSeal, recommendedSeal
 local settingsPanel, settingsHeading, thresholdLabel, thresholdMinus, thresholdPlus
 local settingsChecks, spellChecks, preparationChecks, settingsButtons, assignmentButtons = {}, {}, {}, {}, {}
 local RefreshSettings
+local contextButton, contextSettingsButton, combatHint, hintTitle, hintHelp, hintCooldown
 
 local function Say(message)
     print("|cffffca65My Paladin:|r " .. message)
@@ -18,6 +19,8 @@ local function UpdateMana()
     mana:SetMinMaxValues(0, maximum)
     mana:SetValue(current)
     local text, low = addon.GetManaText(current, maximum, addon.GetSettings())
+    addon.TraceState("mana", low and "low" or (text == "Mana" and "restricted"
+        or text == "Mana unavailable" and "unavailable" or "normal"))
     manaLabel:SetText(text)
     if low then
         mana:SetStatusBarColor(0.85, 0.3, 0.08)
@@ -32,6 +35,7 @@ local function UpdateSealAlert(status, activeSeal)
     if combat then sealAlert:StopMovingOrSizing() end
     if not addon.GetSettings().buffWarnings or not recommendedSealInfo then
         sealAlert:Hide()
+        addon.TraceState("seal_hud", "hidden")
         return
     end
     local step, info = addon.GetCrusaderStep(status, activeSeal)
@@ -58,6 +62,7 @@ local function UpdateSealAlert(status, activeSeal)
         end
         sealAlert.icon:SetTexture(info.iconID)
         sealAlert:Show()
+        addon.TraceState("seal_hud", "opener_" .. step, { spell = info.spellID })
         return
     end
     local echo, echoInfo, count = addon.GetEchoStep(status, activeSeal, recommendedSeal)
@@ -88,6 +93,7 @@ local function UpdateSealAlert(status, activeSeal)
             sealHelp:SetText(echo == "restricted" and "Status restricted" or "Status unavailable")
         end
         sealAlert:Show()
+        addon.TraceState("seal_hud", "echo_" .. echo, { spell = echoInfo.spellID, count = count })
         return
     end
     if status == "active" then
@@ -99,9 +105,11 @@ local function UpdateSealAlert(status, activeSeal)
             sealName:SetText(prepName)
             sealHelp:SetText("Use your action bar before the pull")
             sealAlert:Show()
+            addon.TraceState("seal_hud", "prepare", { spell = prepInfo.spellID, detail = prepName })
             return
         end
         sealAlert:Hide()
+        addon.TraceState("seal_hud", "hidden")
         return
     end
     sealAlert.icon:SetTexture(recommendedSealInfo.iconID)
@@ -116,15 +124,41 @@ local function UpdateSealAlert(status, activeSeal)
         sealHelp:SetText(status == "restricted" and "Status restricted" or "Status unavailable")
     else
         sealAlert:Hide()
+        addon.TraceState("seal_hud", "hidden")
         return
     end
     sealAlert:Show()
+    addon.TraceState("seal_hud", status, { spell = recommendedSealInfo.spellID, detail = recommendedSeal })
+end
+
+local function UpdateCombatHint()
+    local info, name, help, uncertain = addon.GetCombatHint()
+    if not info then
+        hintCooldown:Clear()
+        combatHint:Hide()
+        addon.TraceState("combat_hint", "hidden")
+        return
+    end
+    combatHint.icon:SetTexture(info.iconID)
+    hintTitle:SetText((addon.GetSettings().combatMode == "aoe" and "AoE: " or "Single: ") .. name)
+    if uncertain then hintTitle:SetTextColor(0.7, 0.7, 0.7) else hintTitle:SetTextColor(1, 0.82, 0) end
+    local duration = C_Spell.GetSpellCooldownDuration and C_Spell.GetSpellCooldownDuration(info.spellID)
+    if duration and hintCooldown.SetCooldownFromDurationObject then
+        hintCooldown:SetCooldownFromDurationObject(duration)
+    else
+        hintCooldown:Clear()
+        help = help .. " | Cooldown unavailable"
+    end
+    hintHelp:SetText(help)
+    combatHint:Show()
+    addon.TraceState("combat_hint", uncertain and "uncertain" or "shown", { spell = info.spellID, detail = help })
 end
 
 local function UpdateBuffs()
     local warn = addon.GetSettings().buffWarnings
     for index, group in ipairs(addon.buffGroups) do
         local status, name, spellName = addon.GetProfileBuffStatus(group)
+        addon.TraceState("buff_" .. group.label:lower(), status, { detail = spellName or name })
         local label = buffLabels[index]
         if status == "active" then
             label:SetText(group.label .. ": " .. name)
@@ -141,6 +175,7 @@ local function UpdateBuffs()
         end
         if index == 1 then UpdateSealAlert(status, spellName) end
     end
+    UpdateCombatHint()
 end
 
 local function UpdateSealRecommendation()
@@ -171,8 +206,13 @@ end
 
 local function RefreshProfile()
     local profile, settings = addon.GetProfile(), addon.GetSettings()
+    addon.TraceState("config", "active", { detail = "blessing=" .. settings.blessing .. " aura=" .. settings.aura
+        .. " opener=" .. tostring(settings.crusaderOpener) .. " echoes=" .. tostring(settings.echoGuidance)
+        .. " hints=" .. tostring(settings.combatHints) .. " warnings=" .. tostring(settings.buffWarnings)
+        .. " manaWarning=" .. tostring(settings.manaWarning) .. " threshold=" .. settings.manaThreshold })
     heading:SetText("Active profile: " .. profile.name .. "  |  Level " .. UnitLevel("player"))
     focus:SetText(profile.focus)
+    contextButton:SetText(settings.combatMode == "aoe" and "AoE" or "Single")
     preparation:SetText(addon.GetPreparationText() or "")
     for id, button in pairs(buttons) do
         if id == addon.db.activeProfile then
@@ -268,11 +308,18 @@ local function ToggleCompact()
     RefreshProfile()
 end
 
+local function ToggleContext()
+    local settings = addon.GetSettings()
+    settings.combatMode = settings.combatMode == "aoe" and "single" or "aoe"
+    RefreshProfile()
+end
+
 RefreshSettings = function()
     local profile, settings = addon.GetProfile(), addon.GetSettings()
     settingsHeading:SetText("Editing profile: " .. profile.name)
     for id, button in pairs(settingsButtons) do button:SetEnabled(id ~= addon.db.activeProfile) end
     for key, check in pairs(settingsChecks) do check:SetChecked(settings[key]) end
+    contextSettingsButton:SetText(settings.combatMode == "aoe" and "Combat: Area (AoE)" or "Combat: Single target")
     for _, group in ipairs(addon.buffGroups) do
         if group.setting then
             local selected = settings[group.setting]
@@ -313,10 +360,10 @@ local function Check(parent, x, y, callback)
 end
 
 local function CreateSettings()
-    local spellY = 322
+    local spellY = 380
     local prepY = spellY + math.ceil(addon.maxSpells / 2) * 24 + 12
     local footerY = prepY + 20 + math.ceil(addon.maxPreparation / 2) * 24 + 18
-    settingsPanel = CreateFrame("Frame", "MyPalladinSettings", UIParent, "BackdropTemplate")
+    settingsPanel = CreateFrame("Frame", "MyPaladinSettings", UIParent, "BackdropTemplate")
     settingsPanel:Hide()
     settingsPanel:SetSize(420, footerY + 36)
     settingsPanel:SetPoint("CENTER")
@@ -345,6 +392,7 @@ local function CreateSettings()
         { "showPreparation", "Show preparation when expanded" },
         { "crusaderOpener", "Crusader opener (long fights)" },
         { "echoGuidance", "Unsealed Wrath echoes" },
+        { "combatHints", "Combat context hints" },
     }
     for index, option in ipairs(options) do
         local key = option[1]
@@ -373,7 +421,7 @@ local function CreateSettings()
         if group.setting then
             local button = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
             button:SetSize(190, 22)
-            button:SetPoint("TOPLEFT", 16 + (index - 2) * 200, -268)
+            button:SetPoint("TOPLEFT", 16 + (index - 2) * 200, -294)
             button:SetScript("OnClick", function()
                 local settings = addon.GetSettings()
                 local selected = settings[group.setting]
@@ -387,6 +435,10 @@ local function CreateSettings()
             assignmentButtons[group.setting] = button
         end
     end
+    contextSettingsButton = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+    contextSettingsButton:SetSize(388, 22)
+    contextSettingsButton:SetPoint("TOPLEFT", 16, -324)
+    contextSettingsButton:SetScript("OnClick", ToggleContext)
     Text(settingsPanel, "GameFontNormal", 16, -spellY + 22, 388):SetText("Cooldowns (learned abilities only)")
     for index = 1, addon.maxSpells do
         spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, spellY + math.floor((index - 1) / 2) * 24, function(self)
@@ -406,7 +458,7 @@ local function CreateSettings()
 end
 
 local function CreatePanel()
-    panel = CreateFrame("Frame", "MyPalladinPanel", UIParent, "BackdropTemplate")
+    panel = CreateFrame("Frame", "MyPaladinPanel", UIParent, "BackdropTemplate")
     panel:SetPoint("CENTER")
     panel:SetClampedToScreen(true)
     panel:SetMovable(true)
@@ -427,6 +479,10 @@ local function CreatePanel()
     mode:SetSize(76, 22)
     mode:SetPoint("TOPRIGHT", -38, -10)
     mode:SetScript("OnClick", ToggleCompact)
+    contextButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    contextButton:SetSize(50, 22)
+    contextButton:SetPoint("TOPRIGHT", -206, -10)
+    contextButton:SetScript("OnClick", ToggleContext)
     local settingsButton = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     settingsButton:SetSize(76, 22)
     settingsButton:SetPoint("TOPRIGHT", -122, -10)
@@ -450,7 +506,7 @@ local function CreatePanel()
         buffLabels[index]:SetHeight(30)
         buffLabels[index]:SetJustifyV("TOP")
     end
-    sealAlert = CreateFrame("Frame", "MyPalladinSealAlert", UIParent)
+    sealAlert = CreateFrame("Frame", "MyPaladinSealAlert", UIParent)
     sealAlert:Hide()
     sealAlert:SetSize(300, 64)
     sealAlert:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
@@ -471,6 +527,22 @@ local function CreatePanel()
     sealTitle = Text(sealAlert, "GameFontNormalLarge", 60, 0, 240)
     sealName = Text(sealAlert, "GameFontHighlight", 60, -22, 240)
     sealHelp = Text(sealAlert, "GameFontHighlightSmall", 60, -42, 240)
+    combatHint = CreateFrame("Frame", "MyPaladinCombatHint", UIParent)
+    combatHint:Hide()
+    combatHint:SetSize(300, 64)
+    combatHint:SetPoint("TOPLEFT", sealAlert, "BOTTOMLEFT", 0, -12)
+    combatHint:SetClampedToScreen(true)
+    combatHint:SetFrameStrata("HIGH")
+    combatHint:EnableMouse(false)
+    combatHint.icon = combatHint:CreateTexture(nil, "ARTWORK")
+    combatHint.icon:SetSize(40, 40)
+    combatHint.icon:SetPoint("TOPLEFT")
+    hintCooldown = CreateFrame("Cooldown", nil, combatHint, "CooldownFrameTemplate")
+    hintCooldown:SetAllPoints(combatHint.icon)
+    hintTitle = Text(combatHint, "GameFontHighlight", 52, 0, 248)
+    hintHelp = Text(combatHint, "GameFontHighlightSmall", 52, -22, 248)
+    hintHelp:SetHeight(36)
+    hintHelp:SetJustifyV("TOP")
     mana = CreateFrame("StatusBar", nil, panel)
     mana:SetPoint("TOPLEFT", 16, -152)
     mana:SetSize(388, 18)
@@ -521,7 +593,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
-events:SetScript("OnEvent", function(self, event, unit)
+events:SetScript("OnEvent", function(self, event, unit, _, spellID)
     if event == "ADDON_LOADED" then
         if unit ~= addonName then return end
         self:UnregisterEvent("ADDON_LOADED")
@@ -536,12 +608,15 @@ events:SetScript("OnEvent", function(self, event, unit)
             Say("Required spellbook APIs are unavailable on this client.")
             return
         end
-        MyPalladinDB = addon.Initialize(MyPalladinDB)
+        MyPaladinDB = addon.Initialize(MyPaladinDB)
+        MyPaladinLog = addon.StartDiagnostics(MyPaladinLog)
         CreatePanel()
-        SLASH_MYPALLADIN1 = "/mp"
-        SlashCmdList.MYPALLADIN = function(message)
+        SLASH_MYPALADIN1 = "/mp"
+        SlashCmdList.MYPALADIN = function(message)
             message = message:match("^%s*(.-)%s*$"):lower()
-            if message == "" then
+            if message == "trace" or message:match("^trace%s") then
+                addon.TraceCommand(message:sub(6):match("^%s*(.-)%s*$"), Say)
+            elseif message == "" then
                 panel:SetShown(not panel:IsShown())
             elseif message == "compact" then
                 ToggleCompact()
@@ -558,6 +633,10 @@ events:SetScript("OnEvent", function(self, event, unit)
                 settings.echoGuidance = not settings.echoGuidance
                 RefreshProfile()
                 Say("Echo guidance: " .. (settings.echoGuidance and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
+            elseif message == "single" or message == "aoe" then
+                addon.GetSettings().combatMode = message
+                RefreshProfile()
+                Say("Combat mode: " .. message .. " for " .. addon.GetProfile().name)
             else
                 ChooseProfile(message)
             end
@@ -573,20 +652,34 @@ events:SetScript("OnEvent", function(self, event, unit)
         self:RegisterEvent("PLAYER_TARGET_CHANGED")
         self:RegisterUnitEvent("UNIT_AURA", "player", "target")
         self:RegisterUnitEvent("UNIT_HEALTH", "target")
+        self:RegisterUnitEvent("UNIT_MAXHEALTH", "target")
         self:RegisterUnitEvent("UNIT_FLAGS", "target")
         self:RegisterUnitEvent("UNIT_FACTION", "target")
         self:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
         self:RegisterUnitEvent("UNIT_MAXPOWER", "player")
+        self:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+        self:RegisterEvent("ADDON_ACTION_BLOCKED")
+        self:RegisterEvent("ADDON_ACTION_FORBIDDEN")
+        self:RegisterEvent("PLAYER_LOGOUT")
         RefreshProfile()
         Say("Active profile: " .. addon.GetProfile().name .. ". Use /mp to open or close.")
+    elseif event == "PLAYER_LOGOUT" then
+        addon.Trace("session", "logout")
+    elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+        if not issecretvalue(unit) and unit == addonName then addon.Trace("error", event) end
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+        addon.Trace("cast", "succeeded", { spell = spellID })
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
         if panel:IsShown() then UpdateMana() end
+        UpdateCombatHint()
     elseif event == "UNIT_AURA" or event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH"
-        or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
+        or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
         UpdateBuffs()
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         if panel:IsShown() then UpdateCooldowns() end
+        UpdateCombatHint()
     else
+        addon.TraceState("lifecycle", event)
         RefreshProfile()
     end
 end)

@@ -38,7 +38,7 @@ Para uma revisão correspondente a outro patch:
 python scripts/check_guides.py --accept --patch 1.60.2
 ```
 
-Substitua o patch pelo valor correto. A aceitação atualiza `guides.json` e `MyPalladin/GuideInfo.lua`; não modifica as regras do addon. Reinstale os arquivos atualizados para levar a nova referência ao jogo.
+Substitua o patch pelo valor correto. A aceitação atualiza `guides.json` e `MyPaladin/GuideInfo.lua`; não modifica as regras do addon. Reinstale os arquivos atualizados para levar a nova referência ao jogo.
 
 ## Agendamento com systemd
 
@@ -46,19 +46,32 @@ As unidades em `ops/` consultam os guias diariamente às **09:00 de America/Sao_
 
 ```sh
 mkdir -p ~/.config/systemd/user
-cp ops/mypalladin-guide-check.service ops/mypalladin-guide-check.timer ~/.config/systemd/user/
+cp ops/mypaladin-guide-check.service ops/mypaladin-guide-check.timer ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now mypalladin-guide-check.timer
+systemctl --user enable --now mypaladin-guide-check.timer
 ```
 
 Para executar uma consulta e conferir o resultado:
 
 ```sh
-systemctl --user start mypalladin-guide-check.service
-systemctl --user list-timers mypalladin-guide-check.timer
-journalctl --user -u mypalladin-guide-check.service -n 30
+systemctl --user start mypaladin-guide-check.service
+systemctl --user list-timers mypaladin-guide-check.timer
+journalctl --user -u mypaladin-guide-check.service -n 30
 ```
 
 O timer recupera execuções perdidas quando o gerenciador do usuário voltar a funcionar. O serviço trata saída `2` como revisão pendente e tenta mostrar uma notificação com `notify-send`, quando disponível. O resultado permanece no relatório e no journal se a notificação falhar.
 
 O agendamento consulta e notifica; não aceita revisões nem instala atualizações. Não use `--accept` no timer.
+
+### Migrar o timer com o nome antigo
+
+Se `mypalladin-guide-check.timer` já estiver instalado, desative-o antes de habilitar o nome corrigido para evitar duas consultas:
+
+```sh
+systemctl --user disable --now mypalladin-guide-check.timer
+cp ops/mypaladin-guide-check.service ops/mypaladin-guide-check.timer ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now mypaladin-guide-check.timer
+```
+
+Os arquivos antigos podem ser arquivados fora de `~/.config/systemd/user/` após conferir `systemctl --user list-timers mypaladin-guide-check.timer`. O caminho do clone em `WorkingDirectory`/`ExecStart` precisa continuar correspondendo à pasta real, mesmo que o clone local ainda tenha o nome antigo.

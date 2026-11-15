@@ -1,6 +1,6 @@
 local addon = {}
-assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
-assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
+assert(loadfile("MyPaladin/Profiles.lua"))("MyPaladin", addon)
+assert(loadfile("MyPaladin/PlayerState.lua"))("MyPaladin", addon)
 local secret = setmetatable({}, {
     __index = function() error("Secret inspected") end,
     __div = function() error("Secret calculated") end,
@@ -22,6 +22,11 @@ for _, input in ipairs({ {secret, 100}, {15, secret}, {secret, secret} }) do
 end
 text, low = addon.GetManaText(0, 0, settings)
 assert(text == "Mana unavailable" and not low)
+for _, values in ipairs({ {0/0, 100}, {10, math.huge}, {-1, 100}, {101, 100} }) do
+    local readable
+    text, low, readable = addon.GetManaText(values[1], values[2], settings)
+    assert(text == "Mana unavailable" and not low and not readable)
+end
 
 settings.manaThreshold = 40
 text, low = addon.GetManaText(35, 100, settings)

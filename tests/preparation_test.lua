@@ -1,6 +1,6 @@
 local addon = {}
-assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
-assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
+assert(loadfile("MyPaladin/Profiles.lua"))("MyPaladin", addon)
+assert(loadfile("MyPaladin/PlayerState.lua"))("MyPaladin", addon)
 addon.Initialize(nil)
 local settings = addon.GetSettings()
 local blessing, aura = addon.buffGroups[2], addon.buffGroups[3]

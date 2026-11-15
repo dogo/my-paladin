@@ -190,14 +190,60 @@ function addon.GetEchoStep(sealStatus, activeSeal, primarySeal)
     return "return", command, count
 end
 
+function addon.GetCombatHint()
+    local settings = addon.GetSettings()
+    if not settings.combatHints or not InCombatLockdown() then return nil end
+    local coreName = "Judgement"
+    local core = addon.GetLearnedSpell(coreName)
+    if not core then coreName, core = "Holy Strike", addon.GetLearnedSpell("Holy Strike") end
+    local target = TargetStatus()
+    if target == "none" then return nil end
+    if target ~= "valid" then return core, coreName, "Target status " .. target, true end
+    local uncertain = false
+    local hammer = addon.GetLearnedSpell("Hammer of Wrath")
+    if hammer then
+        local ok, current, maximum = pcall(function() return UnitHealth("target"), UnitHealthMax("target") end)
+        if ok and not issecretvalue(current) and not issecretvalue(maximum)
+            and type(current) == "number" and type(maximum) == "number"
+            and current >= 0 and maximum > 0 and current <= maximum and maximum < math.huge then
+            if current == 0 then return nil end
+            if current / maximum < 0.2 then return hammer, "Hammer of Wrath", "Target below 20% | Use when ready", false end
+        else
+            uncertain = true
+        end
+    end
+    local consecration = settings.combatMode == "aoe" and addon.GetLearnedSpell("Consecration")
+    if consecration then
+        local ok, current, maximum = pcall(function() return UnitPower("player", 0), UnitPowerMax("player", 0) end)
+        if not ok then return consecration, "Consecration", "Check mana before area damage", true end
+        local _, low, readable = addon.GetManaText(current, maximum, settings)
+        if not readable then return consecration, "Consecration", "Check mana before area damage", true end
+        if low then return consecration, "Consecration", "Low mana | Limit Consecration", false end
+        return consecration, "Consecration", "Area damage when mana permits", false
+    end
+    local exorcism = addon.GetLearnedSpell("Exorcism")
+    if exorcism then
+        local ok, creature = pcall(function() return UnitCreatureType("target") end)
+        if ok and not issecretvalue(creature) and type(creature) == "string" then
+            if creature == "Undead" or creature == "Demon" then
+                return exorcism, "Exorcism", "Undead/Demon target | Use when ready", false
+            end
+        else
+            uncertain = true
+        end
+    end
+    return core, coreName, uncertain and "Check target conditions | Core damage macro" or "Core damage: Judgement / Holy Strike", uncertain
+end
+
 function addon.GetManaText(current, maximum, settings)
     if not issecretvalue or issecretvalue(current) or issecretvalue(maximum) then
         return "Mana", false
     end
-    if type(current) ~= "number" or type(maximum) ~= "number" or maximum <= 0 then
+    if type(current) ~= "number" or type(maximum) ~= "number"
+        or not (current >= 0 and maximum > 0 and current <= maximum and maximum < math.huge) then
         return "Mana unavailable", false
     end
     local percent = math.floor(current / maximum * 100 + 0.5)
     local low = settings.manaWarning and current / maximum < settings.manaThreshold / 100
-    return (low and "Low mana: " or "Mana: ") .. percent .. "%", low
+    return (low and "Low mana: " or "Mana: ") .. percent .. "%", low, true
 end

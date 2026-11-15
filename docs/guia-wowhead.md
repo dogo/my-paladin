@@ -46,4 +46,4 @@ Ficam para depois: avaliador de equipamentos, catálogo de BiS, árvores de tale
 
 Validar leitura de selos/ecos e consumo após acerto, erro/esquiva, expiração, troca de alvo e fim de combate. Conferir personagem sem Unsealed Wrath, habilidade ainda não aprendida, cooldown, GCD, mana insuficiente e alvo inválido. Validar idioma e carregamento no cliente real antes de declarar o addon compatível.
 
-Status: primeira versão implementada em `MyPalladin/`, com perfis, cooldowns e barra de mana. Testes locais em `tests/profiles_test.lua`. Acompanhamento de selos/ecos e alertas automáticos ainda pendentes; nenhum teste dentro do jogo foi realizado. As instruções de instalação e os limites estão no README.
+Status: primeira versão implementada em `MyPaladin/`, com perfis, cooldowns e barra de mana. Testes locais em `tests/profiles_test.lua`. Acompanhamento de selos/ecos e alertas automáticos ainda pendentes; nenhum teste dentro do jogo foi realizado. As instruções de instalação e os limites estão no README.

@@ -69,6 +69,7 @@ function addon.Initialize(saved)
         local defaults = {
             compact = saved.compact, buffWarnings = true, manaWarning = true,
             showPreparation = true, crusaderOpener = false, echoGuidance = true,
+            combatHints = true,
         }
         for key, value in pairs(defaults) do
             if type(settings[key]) ~= "boolean" then settings[key] = value end
@@ -92,6 +93,7 @@ function addon.Initialize(saved)
                 if type(hidden) ~= "boolean" then settings[key][name] = nil end
             end
         end
+        if settings.combatMode ~= "single" and settings.combatMode ~= "aoe" then settings.combatMode = "single" end
         saved.profileSettings[id] = settings
     end
     addon.db = saved

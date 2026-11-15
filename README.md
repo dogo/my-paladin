@@ -14,26 +14,31 @@ Desenvolvido para **Forever 1.60.1**, Interface **16001**, com o cliente em ingl
 - Contagem e orientação dos ecos de Command para a build Unsealed Wrath.
 - Perfis por personagem, com preferências de layout, alertas e preparação.
 - Bênção e aura desejadas por perfil, com lembretes de preparação fora de combate.
+- Contexto Single/AoE por perfil e dicas condicionais com o painel fechado.
+- Diagnóstico local das decisões dos avisos, casts públicos e erros do addon.
 - Painel compacto ou expandido, com posição ajustável.
 
 ## Instalação
 
 1. Baixe ou clone este repositório.
-2. Com o jogo fechado, copie a pasta `MyPalladin` para `_forever_/Interface/AddOns/`.
+2. Com o jogo fechado, execute `python scripts/install_addon.py`. O caminho padrão é a instalação em `Faugus/battlenet`; use `--game-dir '/caminho/_forever_'` para outro local.
 3. Abra o jogo e habilite **My Paladin** na lista de AddOns.
 
 A estrutura deve ficar assim:
 
 ```text
-_forever_/Interface/AddOns/MyPalladin/
-├── MyPalladin.toc
-├── MyPalladin.lua
+_forever_/Interface/AddOns/MyPaladin/
+├── MyPaladin.toc
+├── MyPaladin.lua
 ├── Profiles.lua
 ├── PlayerState.lua
+├── Diagnostics.lua
 └── GuideInfo.lua
 ```
 
-Mantenha o nome técnico `MyPalladin` da pasta e dos arquivos para preservar a compatibilidade com as configurações salvas. Não coloque uma pasta extra entre `AddOns` e `MyPalladin`.
+O instalador migra a instalação antiga `MyPalladin` para **MyPaladin**, copia as configurações por personagem e arquiva a pasta antiga fora de `AddOns`. Preserva os originais e cria um backup em `_forever_/Interface/MyPaladin-backups/`. Uma instalação repetida preserva as configurações novas. Feche o jogo antes da migração para ele não regravar os arquivos antigos.
+
+Para uma instalação nova manual, copie apenas `MyPaladin/`, sem pasta extra entre ela e `AddOns`. A migração de configurações requer o instalador.
 
 Ao substituir os arquivos de uma instalação existente, use `/reload` para carregar a atualização.
 
@@ -49,6 +54,10 @@ Ao substituir os arquivos de uma instalação existente, use `/reload` para carr
 | `/mp settings` | Abre ou fecha as configurações |
 | `/mp opener` | Liga ou desliga a abertura com Crusader no perfil ativo |
 | `/mp echoes` | Liga ou desliga a orientação de ecos no perfil ativo |
+| `/mp single` / `/mp aoe` | Seleciona o contexto da luta no perfil ativo |
+| `/mp trace` | Mostra o estado do diagnóstico |
+| `/mp trace on` / `/mp trace off` | Liga ou desliga a gravação local |
+| `/mp trace mark texto` | Marca um momento da sessão para análise |
 
 Arraste o painel para mudar sua posição. Abra **Settings** para escolher os cooldowns, ajustar o alerta de mana e selecionar os lembretes de preparação. A preparação aparece no modo expandido, quando habilitada.
 
@@ -117,6 +126,26 @@ A orientação usa a contagem do buff **Echo of Command**, seguindo o [ciclo PvE
 
 Use `/mp echoes` ou Settings para desligar a orientação no perfil ativo. **Highlight missing buffs** controla todos os avisos independentes. Ao carregar o addon já em combate, a orientação de ecos aguarda a verificação da arma fora de combate.
 
+### Contexto da luta
+
+Use **Single/AoE** no topo do painel ou os comandos correspondentes. A escolha é manual e fica salva por perfil. **Combat context hints** em Settings controla uma dica independente abaixo do aviso de selo, inclusive com o painel fechado.
+
+Em combate e com alvo válido, a dica prioriza Hammer of Wrath abaixo de 20% **somente se a vida for pública**; depois Consecration no modo AoE com orientação de mana; depois Exorcism contra Undead/Demon quando o tipo for público; por fim, lembra o núcleo Judgement/Holy Strike. A animação de cooldown vem do widget nativo; a indicação não garante que a habilidade esteja pronta, em alcance ou com mana suficiente. Não conta inimigos nem monta uma fila completa de rotação.
+
+Dados restritos produzem orientação cinza para conferir as condições. A documentação de Forever marca `UnitHealth` como secreto; portanto não há garantia de indicação de Hammer of Wrath no cliente real.
+
+### Diagnóstico da sessão
+
+A gravação começa ligada, com até **1000 registros por personagem**. Para analisar depois de jogar, use `/reload` ou saia normalmente e execute:
+
+```sh
+python scripts/monitor_session.py
+```
+
+O relatório fica em `.diagnostics/report.md`, com os eventos em `.diagnostics/events.jsonl`. Para acompanhar novos registros durante uma sessão, execute `python scripts/monitor_session.py --watch`. A chegada ao vivo depende de `C_Log` realmente escrever em disco; até confirmar isso, `/reload` ou saída normal é necessário para disponibilizar os dados salvos.
+
+Veja [diagnóstico e roteiro de validação](docs/diagnostico.md). Os registros permitem conferir decisões e restrições; não comprovam dano, prontidão de habilidades ou apresentação visual.
+
 ## Limitações
 
 - A orientação cobre a abertura e a manutenção de selos; a lista de cooldowns não representa uma fila completa de rotação. O addon não lança habilidades nem troca talentos, equipamento ou teclas.
@@ -135,6 +164,8 @@ luajit tests/profile_settings_test.lua
 luajit tests/crusader_opener_test.lua
 luajit tests/echoes_test.lua
 luajit tests/preparation_test.lua
+luajit tests/combat_hints_test.lua
+luajit tests/diagnostics_test.lua
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 

@@ -241,7 +241,7 @@ def accept(root=ROOT, patch=None):
     write_json(config_path, config)
     lua = ('local _, addon = ...\naddon.guideInfo = { reviewedOn = '
            + json.dumps(config["reviewed_on"]) + ', patch = ' + json.dumps(patch) + ' }\n')
-    write_atomic(root / "MyPalladin" / "GuideInfo.lua", lua)
+    write_atomic(root / "MyPaladin" / "GuideInfo.lua", lua)
     write_atomic(folder / "report.md", "# Revisão aceita\n\n" + config["reviewed_on"]
                  + " — patch " + patch + "\n\nTodas as páginas capturadas foram aceitas manualmente.\n"
                  + "Ajuste as regras necessárias, rode os testes e publique/reinstale o addon.\n")

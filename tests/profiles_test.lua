@@ -1,8 +1,9 @@
 local function LoadProfiles()
     local addon = {}
-    assert(loadfile("MyPalladin/GuideInfo.lua"))("MyPalladin", addon)
-    assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
-    assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
+    assert(loadfile("MyPaladin/GuideInfo.lua"))("MyPaladin", addon)
+    assert(loadfile("MyPaladin/Profiles.lua"))("MyPaladin", addon)
+    assert(loadfile("MyPaladin/Diagnostics.lua"))("MyPaladin", addon)
+    assert(loadfile("MyPaladin/PlayerState.lua"))("MyPaladin", addon)
     return addon
 end
 
@@ -38,7 +39,7 @@ local secret = setmetatable({}, {
 })
 local frames, nextID, known = {}, 0, {}
 local combat = false
-local unsealedLearned = false
+local unsealedLearned, hammerLearned = false, false
 local unlearnedAssignments = {}
 local weaponType, weaponSpeed = "INVTYPE_2HWEAPON", "Speed 3.40"
 local methods = {}
@@ -103,6 +104,8 @@ function UnitPowerMax() return secret end
 function issecretvalue(value) return value == secret end
 function GetBuildInfo() return "1.60.1", "70938", "", 16001 end
 function GetLocale() return "enUS" end
+function GetTime() return 42 end
+function time() return 100000 end
 function InCombatLockdown() return combat end
 function GetInventoryItemID() assert(not combat, "No equipment queries in combat"); return 101 end
 C_Item = { GetItemInfoInstant = function() return 101, "Weapon", "Mace", weaponType end }
@@ -113,11 +116,15 @@ local activeBuffs = { ["Seal of Command"] = true, ["Blessing of Might"] = true, 
 local restrictedBuffs = false
 local targetExists, targetHostile, targetDead, targetVisible = false, true, false, true
 local targetDebuff, targetRestricted = false, false
+local targetHealth, targetMaxHealth, creatureType = 100, 100, "Humanoid"
 local echoAura, echoRestricted = nil, false
 function UnitExists(unit) assert(unit == "target"); return targetExists end
 function UnitCanAttack(unit, target) assert(unit == "player" and target == "target"); return targetHostile end
 function UnitIsDeadOrGhost(unit) assert(unit == "target"); return targetDead end
 function UnitIsVisible(unit) assert(unit == "target"); return targetVisible end
+function UnitHealth(unit) assert(unit == "target"); return targetHealth end
+function UnitHealthMax(unit) assert(unit == "target"); return targetMaxHealth end
+function UnitCreatureType(unit) assert(unit == "target"); return creatureType end
 C_Secrets = { ShouldSpellAuraBeSecret = function(name)
     if name == "Judgement of the Crusader" then return targetRestricted end
     if name == "Echo of Command" then return echoRestricted end
@@ -141,7 +148,7 @@ C_UnitAuras = {
 }
 C_SpellBook = {
     FindSpellBookSlotForSpell = function(name)
-        if name == "Hammer of Wrath" or name == "Holy Shock" or unlearnedAssignments[name] then return nil end
+        if (name == "Hammer of Wrath" and not hammerLearned) or name == "Holy Shock" or unlearnedAssignments[name] then return nil end
         if name == "Unsealed Wrath" and not unsealedLearned then return nil end
         if not known[name] then
             nextID = nextID + 1
@@ -151,18 +158,18 @@ C_SpellBook = {
     end,
     GetSpellBookItemInfo = function(slot) return { spellID = slot, iconID = slot } end,
 }
-MyPalladinDB = { activeProfile = "dungeon" }
+MyPaladinDB = { activeProfile = "dungeon" }
 addon = LoadProfiles()
-assert(loadfile("MyPalladin/MyPalladin.lua"))("MyPalladin", addon)
+assert(loadfile("MyPaladin/MyPaladin.lua"))("MyPaladin", addon)
 local events = frames[1]
 local function Emit(event, unit) events.scripts.OnEvent(events, event, unit) end
 Emit("ADDON_LOADED", "AnotherAddon")
-assert(not SlashCmdList.MYPALLADIN)
-Emit("ADDON_LOADED", "MyPalladin")
-assert(MyPalladinDB.activeProfile == "dungeon")
+assert(not SlashCmdList.MYPALADIN)
+Emit("ADDON_LOADED", "MyPaladin")
+assert(MyPaladinDB.activeProfile == "dungeon")
 local panel
 for _, frame in ipairs(frames) do
-    if frame.name == "MyPalladinPanel" then panel = frame end
+    if frame.name == "MyPaladinPanel" then panel = frame end
 end
 assert(panel)
 local function FindText(text)
@@ -173,7 +180,7 @@ end
 assert(FindText("Active profile: Dungeon  |  Level 25"))
 assert(FindText("Guide reviewed: " .. addon.guideInfo.reviewedOn .. " | Patch " .. addon.guideInfo.patch))
 assert(not FindText("Not learned"), "Unlearned spells must be hidden")
-assert(MyPalladinDB.compact == true)
+assert(MyPaladinDB.compact == true)
 assert(FindText("Expand"))
 assert(not FindText(addon.GetPreparationText()):IsShown())
 assert(FindText("Seal: Command"))
@@ -181,7 +188,7 @@ assert(FindText("Blessing: Might"))
 assert(FindText("Aura: Retribution"))
 local sealAlert
 for _, frame in ipairs(frames) do
-    if frame.name == "MyPalladinSealAlert" then sealAlert = frame end
+    if frame.name == "MyPaladinSealAlert" then sealAlert = frame end
 end
 assert(sealAlert and sealAlert.parent == UIParent and sealAlert.kind == "Frame")
 assert(not sealAlert:IsShown(), "An active seal must hide the standalone reminder")
@@ -204,7 +211,7 @@ local compactHeight = panel.height
 FindText("Expand").scripts.OnClick()
 assert(addon.GetSettings().compact == false and panel.height > compactHeight)
 assert(FindText(addon.GetPreparationText()):IsShown())
-SlashCmdList.MYPALLADIN("compact")
+SlashCmdList.MYPALADIN("compact")
 assert(addon.GetSettings().compact == true and panel.height == compactHeight)
 assert(FindText(addon.GetPreparationText()))
 local utilityCard
@@ -212,16 +219,16 @@ for _, frame in ipairs(frames) do
     if frame.spellID == known["Hammer of Justice"] then utilityCard = frame end
 end
 assert(utilityCard, "Dungeon must track control")
-SlashCmdList.MYPALLADIN("  RAID  ")
-assert(MyPalladinDB.activeProfile == "raid")
+SlashCmdList.MYPALADIN("  RAID  ")
+assert(MyPaladinDB.activeProfile == "raid")
 assert(FindText("Active profile: Raid  |  Level 25"))
 assert(FindText("Raid").disabled and not FindText("Dungeon").disabled)
 assert(utilityCard.spellID == known["Blessing of Freedom"], "Profile switch must update tracked spells")
 assert(FindText(addon.GetPreparationText()))
-SlashCmdList.MYPALLADIN("unknown")
-assert(MyPalladinDB.activeProfile == "raid")
+SlashCmdList.MYPALADIN("unknown")
+assert(MyPaladinDB.activeProfile == "raid")
 FindText("Leveling").scripts.OnClick()
-assert(MyPalladinDB.activeProfile == "leveling", "Profile buttons must save the selection")
+assert(MyPaladinDB.activeProfile == "leveling", "Profile buttons must save the selection")
 assert(utilityCard.spellID == known["Divine Shield"])
 restrictedBuffs = true
 combat = true
@@ -253,12 +260,12 @@ assert(FindText("Seal: Righteousness"), "UNIT_AURA updates must not inspect a po
 assert(not sealAlert:IsShown(), "Applying a seal must hide the independent reminder")
 Emit("SPELL_UPDATE_COOLDOWN")
 Emit("UNIT_POWER_UPDATE", "player")
-SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALADIN("")
 assert(not panel:IsShown())
-SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALADIN("")
 assert(panel:IsShown())
 -- Aura events keep the combat reminder current with the management panel closed.
-SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALADIN("")
 assert(not panel:IsShown())
 combat = true
 Emit("PLAYER_REGEN_DISABLED")
@@ -290,7 +297,7 @@ C_UnitAuras = auraAPI
 combat, restrictedBuffs = false, false
 Emit("PLAYER_REGEN_ENABLED")
 assert(not sealAlert:IsShown() and not panel:IsShown())
-SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALADIN("")
 C_Spell.GetSpellCooldownDuration = nil
 Emit("SPELL_UPDATE_COOLDOWN")
 assert(FindText("Cooldown unavailable"), "Missing APIs must not imply ready abilities")
@@ -312,7 +319,7 @@ for _, frame in ipairs(frames) do
 end
 local settingsPanel
 for _, frame in ipairs(frames) do
-    if frame.name == "MyPalladinSettings" then settingsPanel = frame end
+    if frame.name == "MyPaladinSettings" then settingsPanel = frame end
 end
 assert(settingsPanel and not settingsPanel:IsShown())
 FindText("Settings").scripts.OnClick()
@@ -394,18 +401,18 @@ SettingsProfile("Leveling")
 assert(addon.GetSettings() == levelingSettings and not levelingSettings.compact)
 assert(FindText("100%") and FindText("Low mana: 25%"))
 local savedSettings = LoadProfiles()
-savedSettings.Initialize(MyPalladinDB)
+savedSettings.Initialize(MyPaladinDB)
 assert(savedSettings.GetSettings().manaThreshold == 100)
 assert(savedSettings.GetSettings().hiddenSpells["Holy Strike"])
 assert(savedSettings.GetSettings().hiddenPreparation.Food)
-SlashCmdList.MYPALLADIN("settings")
+SlashCmdList.MYPALADIN("settings")
 assert(not settingsPanel:IsShown())
-SlashCmdList.MYPALLADIN("settings")
+SlashCmdList.MYPALADIN("settings")
 assert(settingsPanel:IsShown())
 SetCheck("Crusader opener (long fights)", true)
 assert(levelingSettings.crusaderOpener and not FindText("Apply Crusader"))
-SlashCmdList.MYPALLADIN("settings")
-SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALADIN("settings")
+SlashCmdList.MYPALADIN("")
 assert(not panel:IsShown())
 targetExists = true
 Emit("PLAYER_TARGET_CHANGED")
@@ -455,10 +462,10 @@ assert(not addon.GetSettings().crusaderOpener and not sealAlert:IsShown())
 SettingsProfile("Leveling")
 assert(addon.GetSettings().crusaderOpener and FindText("Judge Crusader"))
 local openerReload = LoadProfiles()
-openerReload.Initialize(MyPalladinDB)
+openerReload.Initialize(MyPaladinDB)
 assert(openerReload.GetSettings().crusaderOpener, "Opener preference must survive reload")
-SlashCmdList.MYPALLADIN("")
-SlashCmdList.MYPALLADIN("opener")
+SlashCmdList.MYPALADIN("")
+SlashCmdList.MYPALADIN("opener")
 assert(not addon.GetSettings().crusaderOpener and not panel:IsShown())
 assert(not sealAlert:IsShown(), "Disabling the opener must restore the normal seal reminder")
 unsealedLearned, weaponType, weaponSpeed = true, "INVTYPE_2HWEAPON", "Speed 3.40"
@@ -525,12 +532,12 @@ assert(addon.GetSettings().echoGuidance and FindText("Spend echoes"))
 SettingsProfile("Leveling")
 assert(not addon.GetSettings().echoGuidance and not sealAlert:IsShown())
 local echoesReload = LoadProfiles()
-echoesReload.Initialize(MyPalladinDB)
+echoesReload.Initialize(MyPaladinDB)
 assert(not echoesReload.GetSettings().echoGuidance)
-SlashCmdList.MYPALLADIN("")
-SlashCmdList.MYPALLADIN("echoes")
+SlashCmdList.MYPALADIN("")
+SlashCmdList.MYPALADIN("echoes")
 assert(addon.GetSettings().echoGuidance and FindText("Spend echoes") and not panel:IsShown())
-SlashCmdList.MYPALLADIN("echoes")
+SlashCmdList.MYPALADIN("echoes")
 assert(not addon.GetSettings().echoGuidance and not sealAlert:IsShown())
 combat, unsealedLearned, weaponType = false, false, "INVTYPE_WEAPON"
 targetExists, activeBuffs = false, {}
@@ -592,24 +599,109 @@ assert(foundSupport, "Expanded support spells must fit beyond the old eight-card
 SetCheck("Weapon buff", false)
 assert(not addon.GetPreparationText():find("Weapon buff"))
 local assignmentsReload = LoadProfiles()
-assignmentsReload.Initialize(MyPalladinDB)
+assignmentsReload.Initialize(MyPaladinDB)
 assert(assignmentsReload.GetSettings().blessing == "Blessing of Might")
 SettingsProfile("Leveling")
 settingsPanel:Hide()
 targetExists, activeBuffs = false, {}
+local combatHint
+for _, frame in ipairs(frames) do
+    if frame.name == "MyPaladinCombatHint" then combatHint = frame end
+end
+assert(combatHint and combatHint.parent == UIParent and not combatHint.mouseEnabled)
+SlashCmdList.MYPALADIN("")
+assert(not panel:IsShown())
+activeBuffs, targetExists, combat = { ["Seal of Righteousness"] = true }, true, true
+C_Spell.GetSpellCooldownDuration = function() return secret end
+Emit("PLAYER_REGEN_DISABLED")
+assert(combatHint:IsShown() and FindText("Single: Judgement") and not panel:IsShown())
+local hintCooldown
+for _, frame in ipairs(frames) do
+    if frame.parent == combatHint and frame.kind == "Cooldown" then hintCooldown = frame end
+end
+assert(hintCooldown.duration == secret, "Forward the hint cooldown duration without inspecting it")
+SlashCmdList.MYPALADIN("aoe")
+assert(addon.GetSettings().combatMode == "aoe" and FindText("AoE: Consecration"))
+UnitPower = function() return 100 end
+UnitPowerMax = function() return 100 end
+Emit("UNIT_POWER_UPDATE", secret)
+assert(FindText("Area damage when mana permits"))
+UnitPower = function() return 10 end
+Emit("UNIT_POWER_UPDATE", secret)
+assert(FindText("Low mana | Limit Consecration"))
+UnitPower = function() return secret end
+Emit("UNIT_POWER_UPDATE", secret)
+assert(FindText("Check mana before area damage") and FindText("AoE: Consecration").textColor[1] == 0.7)
+SlashCmdList.MYPALADIN("single")
+creatureType = "Undead"
+Emit("PLAYER_TARGET_CHANGED")
+assert(FindText("Single: Exorcism"))
+creatureType = secret
+Emit("PLAYER_TARGET_CHANGED")
+assert(FindText("Single: Judgement") and not FindText("Single: Exorcism"))
+creatureType, hammerLearned, targetHealth = "Humanoid", true, 19
+Emit("SPELLS_CHANGED")
+assert(FindText("Single: Hammer of Wrath"))
+targetHealth = 20
+Emit("UNIT_HEALTH", secret)
+assert(FindText("Single: Judgement"))
+targetHealth = secret
+Emit("UNIT_HEALTH", secret)
+assert(not FindText("Single: Hammer of Wrath") and FindText("Single: Judgement").textColor[1] == 0.7)
+targetDead = true
+Emit("UNIT_HEALTH", secret)
+assert(not combatHint:IsShown() and hintCooldown.duration == nil)
+targetDead = false
+Emit("UNIT_FLAGS", secret)
+SlashCmdList.MYPALADIN("aoe")
+settingsPanel:Show()
+SettingsProfile("Dungeon")
+assert(addon.GetSettings().combatMode == "single")
+FindText("Single").scripts.OnClick()
+assert(addon.GetSettings().combatMode == "aoe" and FindText("Combat: Area (AoE)"))
+FindText("Combat: Area (AoE)").scripts.OnClick()
+assert(addon.GetSettings().combatMode == "single")
+SettingsProfile("Leveling")
+assert(addon.GetSettings().combatMode == "aoe")
+SetCheck("Combat context hints", false)
+assert(not combatHint:IsShown())
+local contextReload = LoadProfiles()
+contextReload.Initialize(MyPaladinDB)
+assert(contextReload.GetSettings().combatMode == "aoe" and not contextReload.GetSettings().combatHints)
+SetCheck("Combat context hints", true)
+assert(combatHint:IsShown())
+C_Spell.GetSpellCooldownDuration = nil
+Emit("SPELL_UPDATE_COOLDOWN")
+assert(FindText("Check mana before area damage | Cooldown unavailable"))
+settingsPanel:Hide()
+combat, targetExists, hammerLearned, targetHealth = false, false, false, 100
+activeBuffs = {}
+Emit("PLAYER_REGEN_ENABLED")
+assert(not combatHint:IsShown())
 local firstCombatFrame = #frames + 1
 combat, restrictedBuffs = true, true
 local combatAddon = LoadProfiles()
-assert(loadfile("MyPalladin/MyPalladin.lua"))("MyPalladin", combatAddon)
+assert(loadfile("MyPaladin/MyPaladin.lua"))("MyPaladin", combatAddon)
 local combatEvents = frames[firstCombatFrame]
-combatEvents.scripts.OnEvent(combatEvents, "ADDON_LOADED", "MyPalladin")
+combatEvents.scripts.OnEvent(combatEvents, "ADDON_LOADED", "MyPaladin")
 local combatSealAlert
 for index = firstCombatFrame, #frames do
-    if frames[index].name == "MyPalladinSealAlert" then combatSealAlert = frames[index] end
+    if frames[index].name == "MyPaladinSealAlert" then combatSealAlert = frames[index] end
 end
 assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"],
     "Reloading in combat must show a learned fallback without inspecting equipment")
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
 assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"])
-print("OK: per-profile settings, independent seal/opener/echo alerts, profile settings and safe restrictions/reload")
+local traceSerial = MyPaladinLog.serial
+combatEvents.scripts.OnEvent(combatEvents, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, secret)
+local secretCast = MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]
+assert(MyPaladinLog.serial == traceSerial + 1 and secretCast:find('"feature":"cast"', 1, true)
+    and not secretCast:find('"spell"', 1, true), "Secret cast IDs must not be exported")
+combatEvents.scripts.OnEvent(combatEvents, "ADDON_ACTION_BLOCKED", "OtherAddon")
+assert(MyPaladinLog.serial == traceSerial + 1)
+combatEvents.scripts.OnEvent(combatEvents, "ADDON_ACTION_BLOCKED", "MyPaladin")
+assert(MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]:find('"feature":"error"', 1, true))
+SlashCmdList.MYPALADIN("trace mark validation")
+assert(MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]:find('"detail":"validation"', 1, true))
+print("OK: per-profile settings, independent seal/opener/echo/context hints, assignments and safe restrictions/reload")
