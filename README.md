@@ -13,6 +13,7 @@ Desenvolvido para **Forever 1.60.1**, Interface **16001**, com o cliente em ingl
 - Abertura opcional com Crusader para lutas longas, guiada por etapas.
 - Contagem e orientação dos ecos de Command para a build Unsealed Wrath.
 - Perfis por personagem, com preferências de layout, alertas e preparação.
+- Bênção e aura desejadas por perfil, com lembretes de preparação fora de combate.
 - Painel compacto ou expandido, com posição ajustável.
 
 ## Instalação
@@ -56,12 +57,22 @@ Arraste o painel para mudar sua posição. Abra **Settings** para escolher os co
 | Perfil | Foco | Habilidades adicionais acompanhadas |
 | --- | --- | --- |
 | Leveling | Preparação para solo e mana entre lutas | Holy Light, Divine Shield, Lay on Hands |
-| Dungeon | Controle e suporte ao grupo | Cleanse, Hammer of Justice, Blessing of Protection |
-| Raid | Preparação e suporte coordenado | Cleanse, Blessing of Freedom, Blessing of Protection |
+| Dungeon | Controle e suporte ao grupo | Cleanse, Hammer of Justice, Protection/Freedom, Divine Shield, Lay on Hands |
+| Raid | Preparação e suporte coordenado | Cleanse, Freedom/Protection, Hammer of Justice, Divine Shield, Lay on Hands |
 
 Todos incluem Judgement, Holy Strike, Hammer of Wrath, Exorcism e Consecration, quando aprendidos e habilitados nas configurações.
 
 Cada perfil salva suas próprias preferências por personagem. A seleção é manual e persiste após `/reload` ou saída normal do jogo. Entrar numa instância não troca o perfil automaticamente.
+
+### Preparação de grupo
+
+Em Settings, clique nos seletores **Blessing** e **Aura** para percorrer as opções. **Any** aceita qualquer buff acompanhado e é o padrão. Uma escolha específica exige aquele buff; outro buff da mesma categoria não satisfaz a escolha. As preferências são independentes por perfil.
+
+O indicador mostra **not learned** quando a habilidade escolhida não está aprendida e o buff está ausente. Um buff correspondente fornecido por outro jogador também conta. Dados restritos continuam em cinza, sem afirmar ausência.
+
+Com um selo ativo, o aviso independente pode lembrar a bênção ou aura aprendida que estiver faltando **fora de combate**. Durante a luta, ficam apenas os indicadores do painel. Os avisos não lançam buffs nem escolhem atribuições para o grupo.
+
+Os lembretes de Dungeon incluem comida, água, buff de arma e Mana Potions. Raid também inclui elixires. São lembretes configuráveis, sem checagem automática de bolsas ou consumo.
 
 ### Aviso de selo
 
@@ -123,6 +134,7 @@ luajit tests/player_state_test.lua
 luajit tests/profile_settings_test.lua
 luajit tests/crusader_opener_test.lua
 luajit tests/echoes_test.lua
+luajit tests/preparation_test.lua
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 

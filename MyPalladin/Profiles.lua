@@ -1,5 +1,18 @@
 local _, addon = ...
 
+addon.buffGroups = {
+    { label = "Seal", spells = {
+        "Seal of Righteousness", "Seal of Command", "Seal of the Crusader", "Seal of Fury",
+        "Seal of Light", "Seal of Wisdom", "Seal of Justice",
+    } },
+    { label = "Blessing", setting = "blessing", spells = { "Blessing of Might", "Blessing of Wisdom", "Blessing of Kings" } },
+    { label = "Aura", setting = "aura", spells = {
+        "Devotion Aura", "Retribution Aura", "Concentration Aura",
+        "Shadow Resistance Aura", "Frost Resistance Aura", "Fire Resistance Aura",
+    } },
+}
+
+
 addon.profileOrder = { "leveling", "dungeon", "raid" }
 addon.profiles = {
     leveling = {
@@ -14,22 +27,30 @@ addon.profiles = {
     dungeon = {
         name = "Dungeon",
         focus = "Use Consecration for packs when mana permits. Save control for dangerous enemies.",
-        preparation = { "Agree on Blessings", "Agree on Aura", "Mana Potions" },
+        preparation = { "Agree on Blessings", "Agree on Aura", "Mana Potions", "Food", "Drinking water", "Weapon buff" },
         spells = {
             "Judgement", "Holy Strike", "Hammer of Wrath", "Exorcism",
             "Consecration", "Cleanse", "Hammer of Justice", "Blessing of Protection",
+            "Blessing of Freedom", "Divine Shield", "Lay on Hands",
         },
     },
     raid = {
         name = "Raid",
         focus = "Use the same damage core. Coordinate Blessings, Auras and support with your raid.",
-        preparation = { "Assigned Blessing/Aura", "Food", "Weapon buff", "Elixirs", "Mana Potions" },
+        preparation = { "Assigned Blessing/Aura", "Food", "Weapon buff", "Elixirs", "Mana Potions", "Drinking water" },
         spells = {
             "Judgement", "Holy Strike", "Hammer of Wrath", "Exorcism",
             "Consecration", "Cleanse", "Blessing of Freedom", "Blessing of Protection",
+            "Hammer of Justice", "Divine Shield", "Lay on Hands",
         },
     },
 }
+
+addon.maxSpells, addon.maxPreparation = 0, 0
+for _, id in ipairs(addon.profileOrder) do
+    addon.maxSpells = math.max(addon.maxSpells, #addon.profiles[id].spells)
+    addon.maxPreparation = math.max(addon.maxPreparation, #addon.profiles[id].preparation)
+end
 
 function addon.Initialize(saved)
     if type(saved) ~= "table" then
@@ -51,6 +72,16 @@ function addon.Initialize(saved)
         }
         for key, value in pairs(defaults) do
             if type(settings[key]) ~= "boolean" then settings[key] = value end
+        end
+        for _, group in ipairs(addon.buffGroups) do
+            if group.setting then
+                local selected = settings[group.setting]
+                local valid = selected == "any"
+                for _, name in ipairs(group.spells) do
+                    if selected == name then valid = true end
+                end
+                if not valid then settings[group.setting] = "any" end
+            end
         end
         if type(settings.manaThreshold) ~= "number" or not (settings.manaThreshold >= 0 and settings.manaThreshold <= 100) then
             settings.manaThreshold = 20

@@ -100,3 +100,13 @@ Com Command, zero/um eco mantém a acumulação e dois/três orientam Righteousn
 A abertura de Crusader é avaliada antes dos ecos. Selos de utilidade e ausência de selo continuam com os comportamentos anteriores. `/mp echoes` e o checkbox **Unsealed Wrath echoes** controlam a preferência por personagem/perfil, ligada por padrão. Sem o talento aprendido, a orientação não aparece. Os testes cobrem contagens, metadados inválidos, campos secretos, espera sem consumo, remoção do buff, interação com a abertura, troca de alvo e persistência das preferências.
 
 Referências de API: [UnitAuraDocumentation.lua do ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitAuraDocumentation.lua) e [exportação da API de auras do cliente](https://github.com/Atraeau/WoW-Addons/blob/main/docs/api/Spells-Auras-Talents/C_UnitAuras.md). O retorno por nome tem `RequiresNonSecretAura`; a existência da API não garante leitura pública em combate na build 70938.
+
+## Preparação de grupo
+
+`Profiles.lua` concentra os grupos de buffs, os presets e os nomes aceitos nas atribuições. `blessing` e `aura` ficam salvos por perfil; o padrão `any` preserva a detecção anterior. Dados inválidos recuperam esse padrão sem alterar as demais preferências.
+
+`GetProfileBuffStatus` consulta somente o buff selecionado, quando houver atribuição, com as mesmas verificações de segredo de `GetBuffStatus`. Ausência confirmada de uma habilidade não aprendida gera `unlearned`, e não uma instrução de lançamento. Buff correspondente presente é aceito mesmo se não puder ser lançado pelo jogador; não é necessário ler autoria ou outros campos da aura.
+
+`GetPreparationReminder` retorna uma bênção ou aura aprendida que falta e só atua fora de combate. O HUD prioriza selo/abertura/ecos antes da preparação; o controle geral de avisos continua por perfil. Durante combate, as atribuições são apresentadas nos indicadores sem interromper os avisos de selos.
+
+As listas de cooldowns de Dungeon/Raid incluem as ferramentas adicionais de suporte aprendidas. A capacidade dos cards e checkboxes é calculada a partir dos presets. Os lembretes de consumíveis são manuais: não inferem inventário ou estado de consumo. As escolhas de grupo e as categorias seguem os guias de [habilidades](https://www.wowhead.com/forever/guide/classes/paladin/retribution/dps-abilities) e [consumíveis](https://www.wowhead.com/forever/guide/classes/paladin/retribution/enchants-consumables-pve-dps) de Forever.

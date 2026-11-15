@@ -1,4 +1,5 @@
 local addon = {}
+assert(loadfile("MyPalladin/Profiles.lua"))("MyPalladin", addon)
 assert(loadfile("MyPalladin/PlayerState.lua"))("MyPalladin", addon)
 local secret = setmetatable({}, {
     __index = function() error("Secret inspected") end,

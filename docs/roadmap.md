@@ -14,6 +14,7 @@ Implementado significa código disponível, testes locais aprovados e arquivos i
 | 0.4.1 | Aviso de selo independente do painel, atualizado durante combate |
 | 0.5.0 | Abertura opcional Crusader → Judgement → selo de dano para lutas longas |
 | 0.5.1 | Ecos de Command: acumular, trocar para Righteousness, aguardar e retornar a Command |
+| 0.6 | Bênção/aura desejadas por perfil, avisos de preparação fora de combate e mais cooldowns de suporte |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.
@@ -22,19 +23,10 @@ Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Comma
 
 - Conferir cooldowns, mana, ranks e persistência de configurações na build 70938.
 - Conferir o aviso de selo e a abertura de Crusader com o painel fechado.
+- Conferir atribuições de bênção/aura, buffs recebidos de outro jogador e avisos de preparação fora de combate.
 - Com Unsealed Wrath aprendido, conferir o buff e a contagem de Echo of Command no cliente real.
 - Repetir o ciclo após acerto, erro/esquiva, expiração, dispel, troca de alvo e fim de combate.
 - Confirmar quais dados permanecem públicos durante combate; estados restritos devem limpar orientações anteriores e mostrar uma indicação de conferência.
-
-## 0.6 — Preparação de grupo
-
-Próxima etapa de implementação:
-
-- Escolher a bênção e a aura desejadas por perfil e avisar quando faltarem.
-- Organizar os lembretes de consumíveis para Dungeon e Raid.
-- Melhorar o acompanhamento das ferramentas de suporte já aprendidas.
-
-As atribuições de bênçãos e auras serão manuais, para respeitar a combinação do grupo.
 
 ## 0.7 — Contexto da luta
 

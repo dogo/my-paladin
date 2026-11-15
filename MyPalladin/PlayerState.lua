@@ -1,17 +1,5 @@
 local _, addon = ...
 
-addon.buffGroups = {
-    { label = "Seal", spells = {
-        "Seal of Righteousness", "Seal of Command", "Seal of the Crusader", "Seal of Fury",
-        "Seal of Light", "Seal of Wisdom", "Seal of Justice",
-    } },
-    { label = "Blessing", spells = { "Blessing of Might", "Blessing of Wisdom", "Blessing of Kings" } },
-    { label = "Aura", spells = {
-        "Devotion Aura", "Retribution Aura", "Concentration Aura",
-        "Shadow Resistance Aura", "Frost Resistance Aura", "Fire Resistance Aura",
-    } },
-}
-
 function addon.GetLearnedSpell(name)
     local slot, bank = C_SpellBook.FindSpellBookSlotForSpell(name)
     local info = slot and C_SpellBook.GetSpellBookItemInfo(slot, bank)
@@ -102,6 +90,29 @@ function addon.GetBuffStatus(group, unit, filter)
     if restricted then return "restricted" end
     if unavailable then return "unavailable" end
     return "missing"
+end
+
+function addon.GetProfileBuffStatus(group)
+    local selected = group.setting and addon.GetSettings()[group.setting]
+    if not selected or selected == "any" then return addon.GetBuffStatus(group) end
+    local status, name, spellName, aura = addon.GetBuffStatus({ spells = { selected } })
+    if status == "missing" then
+        name = selected:gsub("^Blessing of ", ""):gsub(" Aura$", "")
+        if not addon.GetLearnedSpell(selected) then status = "unlearned" end
+    end
+    return status, name, spellName, aura
+end
+
+function addon.GetPreparationReminder()
+    if InCombatLockdown() then return nil end
+    for _, group in ipairs(addon.buffGroups) do
+        if group.setting then
+            local selected = addon.GetSettings()[group.setting]
+            if selected ~= "any" and addon.GetProfileBuffStatus(group) == "missing" then
+                return addon.GetLearnedSpell(selected), selected, group.label
+            end
+        end
+    end
 end
 
 local function TargetStatus()

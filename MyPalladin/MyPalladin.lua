@@ -5,7 +5,7 @@ local learnedCount = 0
 local Layout
 local sealAlert, sealTitle, sealName, sealHelp, recommendedSeal, recommendedSealInfo
 local settingsPanel, settingsHeading, thresholdLabel, thresholdMinus, thresholdPlus
-local settingsChecks, spellChecks, preparationChecks, settingsButtons = {}, {}, {}, {}
+local settingsChecks, spellChecks, preparationChecks, settingsButtons, assignmentButtons = {}, {}, {}, {}, {}
 local RefreshSettings
 
 local function Say(message)
@@ -91,6 +91,16 @@ local function UpdateSealAlert(status, activeSeal)
         return
     end
     if status == "active" then
+        local prepInfo, prepName, label = addon.GetPreparationReminder()
+        if prepInfo then
+            sealAlert.icon:SetTexture(prepInfo.iconID)
+            sealTitle:SetText("Prepare " .. label:lower())
+            sealTitle:SetTextColor(1, 0.5, 0.2)
+            sealName:SetText(prepName)
+            sealHelp:SetText("Use your action bar before the pull")
+            sealAlert:Show()
+            return
+        end
         sealAlert:Hide()
         return
     end
@@ -114,14 +124,17 @@ end
 local function UpdateBuffs()
     local warn = addon.GetSettings().buffWarnings
     for index, group in ipairs(addon.buffGroups) do
-        local status, name, spellName = addon.GetBuffStatus(group)
+        local status, name, spellName = addon.GetProfileBuffStatus(group)
         local label = buffLabels[index]
         if status == "active" then
             label:SetText(group.label .. ": " .. name)
             label:SetTextColor(0.4, 1, 0.4)
         elseif status == "missing" then
-            label:SetText(group.label .. ": Missing")
+            label:SetText(group.label .. ": " .. (name and name .. " missing" or "Missing"))
             if warn and index ~= 1 then label:SetTextColor(1, 0.5, 0.2) else label:SetTextColor(0.7, 0.7, 0.7) end
+        elseif status == "unlearned" then
+            label:SetText(group.label .. ": " .. name .. " (not learned)")
+            label:SetTextColor(0.7, 0.7, 0.7)
         else
             label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
             label:SetTextColor(0.7, 0.7, 0.7)
@@ -260,13 +273,25 @@ RefreshSettings = function()
     settingsHeading:SetText("Editing profile: " .. profile.name)
     for id, button in pairs(settingsButtons) do button:SetEnabled(id ~= addon.db.activeProfile) end
     for key, check in pairs(settingsChecks) do check:SetChecked(settings[key]) end
+    for _, group in ipairs(addon.buffGroups) do
+        if group.setting then
+            local selected = settings[group.setting]
+            local name = selected == "any" and "Any" or selected:gsub("^Blessing of ", ""):gsub(" Aura$", "")
+            assignmentButtons[group.setting]:SetText(group.label .. ": " .. name)
+        end
+    end
     thresholdLabel:SetText(settings.manaThreshold .. "%")
     thresholdMinus:SetEnabled(settings.manaWarning and settings.manaThreshold > 0)
     thresholdPlus:SetEnabled(settings.manaWarning and settings.manaThreshold < 100)
     for index, check in ipairs(spellChecks) do
         local name = profile.spells[index]
-        check.label:SetText(name)
-        check:SetChecked(not settings.hiddenSpells[name])
+        check:SetShown(name ~= nil)
+        if name then
+            check.label:SetText(name)
+            check:SetChecked(not settings.hiddenSpells[name])
+        else
+            check.label:SetText("")
+        end
     end
     for index, check in ipairs(preparationChecks) do
         local item = profile.preparation[index]
@@ -288,9 +313,12 @@ local function Check(parent, x, y, callback)
 end
 
 local function CreateSettings()
+    local spellY = 322
+    local prepY = spellY + math.ceil(addon.maxSpells / 2) * 24 + 12
+    local footerY = prepY + 20 + math.ceil(addon.maxPreparation / 2) * 24 + 18
     settingsPanel = CreateFrame("Frame", "MyPalladinSettings", UIParent, "BackdropTemplate")
     settingsPanel:Hide()
-    settingsPanel:SetSize(420, 560)
+    settingsPanel:SetSize(420, footerY + 36)
     settingsPanel:SetPoint("CENTER")
     settingsPanel:SetClampedToScreen(true)
     settingsPanel:EnableMouse(true)
@@ -341,21 +369,39 @@ local function CreateSettings()
         end)
         if delta < 0 then thresholdMinus = button else thresholdPlus = button end
     end
-    Text(settingsPanel, "GameFontNormal", 16, -268, 388):SetText("Cooldowns (learned abilities only)")
-    for index = 1, 8 do
-        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 290 + math.floor((index - 1) / 2) * 24, function(self)
+    for index, group in ipairs(addon.buffGroups) do
+        if group.setting then
+            local button = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+            button:SetSize(190, 22)
+            button:SetPoint("TOPLEFT", 16 + (index - 2) * 200, -268)
+            button:SetScript("OnClick", function()
+                local settings = addon.GetSettings()
+                local selected = settings[group.setting]
+                local nextName = group.spells[1]
+                for position, name in ipairs(group.spells) do
+                    if name == selected then nextName = group.spells[position + 1] or "any" end
+                end
+                settings[group.setting] = nextName
+                RefreshProfile()
+            end)
+            assignmentButtons[group.setting] = button
+        end
+    end
+    Text(settingsPanel, "GameFontNormal", 16, -spellY + 22, 388):SetText("Cooldowns (learned abilities only)")
+    for index = 1, addon.maxSpells do
+        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, spellY + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenSpells[addon.GetProfile().spells[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontNormal", 16, -398, 388):SetText("Preparation reminders")
-    for index = 1, 5 do
-        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 418 + math.floor((index - 1) / 2) * 24, function(self)
+    Text(settingsPanel, "GameFontNormal", 16, -prepY, 388):SetText("Preparation reminders")
+    for index = 1, addon.maxPreparation do
+        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, prepY + 20 + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenPreparation[addon.GetProfile().preparation[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontDisableSmall", 16, -518, 388):SetText("Saved automatically for this character and profile.")
+    Text(settingsPanel, "GameFontDisableSmall", 16, -footerY, 388):SetText("Saved automatically for this character and profile.")
     settingsPanel:SetScript("OnShow", RefreshSettings)
 end
 
@@ -437,7 +483,7 @@ local function CreatePanel()
     manaLabel:SetPoint("CENTER")
     manaLabel:SetText("Mana")
 
-    for index = 1, 8 do
+    for index = 1, addon.maxSpells do
         local card = CreateFrame("Frame", nil, panel)
         card:SetSize(190, 44)
         card:SetPoint("TOPLEFT", 16 + ((index - 1) % 2) * 200, -186 - math.floor((index - 1) / 2) * 50)

@@ -39,6 +39,7 @@ local secret = setmetatable({}, {
 local frames, nextID, known = {}, 0, {}
 local combat = false
 local unsealedLearned = false
+local unlearnedAssignments = {}
 local weaponType, weaponSpeed = "INVTYPE_2HWEAPON", "Speed 3.40"
 local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
@@ -140,7 +141,7 @@ C_UnitAuras = {
 }
 C_SpellBook = {
     FindSpellBookSlotForSpell = function(name)
-        if name == "Hammer of Wrath" or name == "Holy Shock" then return nil end
+        if name == "Hammer of Wrath" or name == "Holy Shock" or unlearnedAssignments[name] then return nil end
         if name == "Unsealed Wrath" and not unsealedLearned then return nil end
         if not known[name] then
             nextID = nextID + 1
@@ -532,6 +533,69 @@ assert(addon.GetSettings().echoGuidance and FindText("Spend echoes") and not pan
 SlashCmdList.MYPALLADIN("echoes")
 assert(not addon.GetSettings().echoGuidance and not sealAlert:IsShown())
 combat, unsealedLearned, weaponType = false, false, "INVTYPE_WEAPON"
+targetExists, activeBuffs = false, {}
+activeBuffs = { ["Seal of Righteousness"] = true }
+Emit("PLAYER_REGEN_ENABLED")
+settingsPanel:Show()
+local function AssignmentButton(text)
+    for _, frame in ipairs(frames) do
+        if frame.parent == settingsPanel and frame.kind == "Button" and frame.text == text then return frame end
+    end
+    error("Missing assignment selector: " .. text)
+end
+AssignmentButton("Blessing: Any").scripts.OnClick()
+assert(addon.GetSettings().blessing == "Blessing of Might" and FindText("Blessing: Might missing"))
+assert(FindText("Prepare blessing") and sealAlert.icon.texture == known["Blessing of Might"])
+AssignmentButton("Aura: Any").scripts.OnClick()
+activeBuffs["Blessing of Might"] = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Prepare aura") and sealAlert.icon.texture == known["Devotion Aura"])
+activeBuffs["Devotion Aura"] = true
+Emit("UNIT_AURA", secret)
+assert(not sealAlert:IsShown())
+AssignmentButton("Blessing: Might").scripts.OnClick()
+assert(addon.GetSettings().blessing == "Blessing of Wisdom" and FindText("Blessing: Wisdom missing"))
+unlearnedAssignments["Blessing of Wisdom"] = true
+Emit("SPELLS_CHANGED")
+assert(FindText("Blessing: Wisdom (not learned)") and not sealAlert:IsShown())
+activeBuffs["Blessing of Wisdom"] = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Blessing: Wisdom") and not sealAlert:IsShown())
+activeBuffs["Blessing of Wisdom"] = nil
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
+assert(not sealAlert:IsShown(), "Assigned buff preparation must not interrupt the fight")
+combat, restrictedBuffs = false, true
+Emit("PLAYER_REGEN_ENABLED")
+assert(FindText("Blessing: Restricted") and not sealAlert:IsShown())
+restrictedBuffs = false
+AssignmentButton("Blessing: Wisdom").scripts.OnClick()
+AssignmentButton("Blessing: Kings").scripts.OnClick()
+assert(addon.GetSettings().blessing == "any", "Selector must cycle back to Any")
+for _, name in ipairs(addon.buffGroups[3].spells) do
+    local short = name:gsub(" Aura$", "")
+    AssignmentButton("Aura: " .. short).scripts.OnClick()
+end
+assert(addon.GetSettings().aura == "any")
+unlearnedAssignments["Blessing of Wisdom"] = nil
+SettingsProfile("Dungeon")
+AssignmentButton("Blessing: Any").scripts.OnClick()
+SettingsProfile("Raid")
+assert(addon.GetSettings().blessing == "any")
+SettingsProfile("Dungeon")
+assert(addon.GetSettings().blessing == "Blessing of Might")
+local foundSupport = false
+for _, frame in ipairs(frames) do
+    if frame.cooldown and frame.label.text == "Lay on Hands" and frame:IsShown() then foundSupport = true end
+end
+assert(foundSupport, "Expanded support spells must fit beyond the old eight-card limit")
+SetCheck("Weapon buff", false)
+assert(not addon.GetPreparationText():find("Weapon buff"))
+local assignmentsReload = LoadProfiles()
+assignmentsReload.Initialize(MyPalladinDB)
+assert(assignmentsReload.GetSettings().blessing == "Blessing of Might")
+SettingsProfile("Leveling")
+settingsPanel:Hide()
 targetExists, activeBuffs = false, {}
 local firstCombatFrame = #frames + 1
 combat, restrictedBuffs = true, true
