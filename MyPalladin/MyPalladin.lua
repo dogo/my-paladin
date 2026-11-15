@@ -60,6 +60,36 @@ local function UpdateSealAlert(status, activeSeal)
         sealAlert:Show()
         return
     end
+    local echo, echoInfo, count = addon.GetEchoStep(status, activeSeal, recommendedSeal)
+    if echo then
+        sealAlert.icon:SetTexture(echoInfo.iconID)
+        sealTitle:SetTextColor(1, 0.5, 0.2)
+        if echo == "build" then
+            sealTitle:SetText("Build echoes")
+            sealTitle:SetTextColor(0.4, 1, 0.4)
+            sealName:SetText("Seal of Command")
+            sealHelp:SetText("Echoes: " .. count .. "/2 | Keep Command")
+        elseif echo == "swap" then
+            sealTitle:SetText("Spend echoes")
+            sealName:SetText("Seal of Righteousness")
+            sealHelp:SetText("Echoes: " .. count .. " | Switch seal")
+        elseif echo == "wait" then
+            sealTitle:SetText("Land a melee hit")
+            sealName:SetText("Seal of Righteousness")
+            sealHelp:SetText("Echoes: " .. count .. " | Stay on Righteousness")
+        elseif echo == "return" then
+            sealTitle:SetText("Return to Command")
+            sealName:SetText("Seal of Command")
+            sealHelp:SetText("No Command echoes detected")
+        else
+            sealTitle:SetText("Check echoes")
+            sealTitle:SetTextColor(0.7, 0.7, 0.7)
+            sealName:SetText("Echo of Command")
+            sealHelp:SetText(echo == "restricted" and "Status restricted" or "Status unavailable")
+        end
+        sealAlert:Show()
+        return
+    end
     if status == "active" then
         sealAlert:Hide()
         return
@@ -260,7 +290,7 @@ end
 local function CreateSettings()
     settingsPanel = CreateFrame("Frame", "MyPalladinSettings", UIParent, "BackdropTemplate")
     settingsPanel:Hide()
-    settingsPanel:SetSize(420, 534)
+    settingsPanel:SetSize(420, 560)
     settingsPanel:SetPoint("CENTER")
     settingsPanel:SetClampedToScreen(true)
     settingsPanel:EnableMouse(true)
@@ -286,6 +316,7 @@ local function CreateSettings()
         { "manaWarning", "Warn low mana below" },
         { "showPreparation", "Show preparation when expanded" },
         { "crusaderOpener", "Crusader opener (long fights)" },
+        { "echoGuidance", "Unsealed Wrath echoes" },
     }
     for index, option in ipairs(options) do
         local key = option[1]
@@ -310,21 +341,21 @@ local function CreateSettings()
         end)
         if delta < 0 then thresholdMinus = button else thresholdPlus = button end
     end
-    Text(settingsPanel, "GameFontNormal", 16, -242, 388):SetText("Cooldowns (learned abilities only)")
+    Text(settingsPanel, "GameFontNormal", 16, -268, 388):SetText("Cooldowns (learned abilities only)")
     for index = 1, 8 do
-        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 264 + math.floor((index - 1) / 2) * 24, function(self)
+        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 290 + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenSpells[addon.GetProfile().spells[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontNormal", 16, -372, 388):SetText("Preparation reminders")
+    Text(settingsPanel, "GameFontNormal", 16, -398, 388):SetText("Preparation reminders")
     for index = 1, 5 do
-        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 392 + math.floor((index - 1) / 2) * 24, function(self)
+        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 418 + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenPreparation[addon.GetProfile().preparation[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontDisableSmall", 16, -492, 388):SetText("Saved automatically for this character and profile.")
+    Text(settingsPanel, "GameFontDisableSmall", 16, -518, 388):SetText("Saved automatically for this character and profile.")
     settingsPanel:SetScript("OnShow", RefreshSettings)
 end
 
@@ -476,6 +507,11 @@ events:SetScript("OnEvent", function(self, event, unit)
                 settings.crusaderOpener = not settings.crusaderOpener
                 RefreshProfile()
                 Say("Crusader opener: " .. (settings.crusaderOpener and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
+            elseif message == "echoes" then
+                local settings = addon.GetSettings()
+                settings.echoGuidance = not settings.echoGuidance
+                RefreshProfile()
+                Say("Echo guidance: " .. (settings.echoGuidance and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
             else
                 ChooseProfile(message)
             end

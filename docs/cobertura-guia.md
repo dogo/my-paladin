@@ -73,7 +73,7 @@ Consultar o [índice geral](https://www.wowhead.com/forever/guides) pelos result
 
 ## Tooltips centrais conferidos
 
-- [Unsealed Wrath, 1310735](https://www.wowhead.com/forever/spell=1310735/unsealed-wrath): cópias do selo duram 15 segundos, até três. Um ataque que acerta com outro selo consome os acúmulos. Cada cópia recebe a chance normal de ativação; dois ecos não garantem dois procs. A página do talento não identifica, por si só, o ID do buff dos ecos no cliente.
+- [Unsealed Wrath, 1310735](https://www.wowhead.com/forever/spell=1310735/unsealed-wrath): cópias do selo duram 15 segundos, até três. Um ataque que acerta com outro selo consome os acúmulos. Cada cópia recebe a chance normal de ativação; dois ecos não garantem dois procs. A página do talento não identifica, por si só, o ID do buff dos ecos no cliente. O registro separado de [Echo of Command, 1311703](https://www.wowhead.com/forever/spell=1311703/echo-of-command) foi localizado: esse ID é validado no retorno da aura antes de usar sua contagem, ainda pendente de confirmação no cliente instalado.
 - [Sacred Arbiter, 1311087](https://www.wowhead.com/forever/spell=1311087/sacred-arbiter): aumenta Holy Strike e o faz renovar os efeitos de Judgement no alvo. Essa regra depende do talento aprendido.
 - [Seal of Command, 20375](https://www.wowhead.com/forever/spell=20375/seal-of-command) e [Seal of Righteousness, 20293](https://www.wowhead.com/forever/spell=20293/seal-of-righteousness): os registros consultados mostram duração de 30 segundos e GCD de 1,5 segundo. Não generalizar mana/dano desses ranks para todos os níveis. Comentários antigos presentes nessas páginas não foram usados como regras atuais.
 

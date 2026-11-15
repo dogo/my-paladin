@@ -38,6 +38,7 @@ local secret = setmetatable({}, {
 })
 local frames, nextID, known = {}, 0, {}
 local combat = false
+local unsealedLearned = false
 local weaponType, weaponSpeed = "INVTYPE_2HWEAPON", "Speed 3.40"
 local methods = {}
 for name in ("SetSize SetPoint SetWidth SetHeight SetJustifyH SetJustifyV SetClampedToScreen " ..
@@ -111,12 +112,14 @@ local activeBuffs = { ["Seal of Command"] = true, ["Blessing of Might"] = true, 
 local restrictedBuffs = false
 local targetExists, targetHostile, targetDead, targetVisible = false, true, false, true
 local targetDebuff, targetRestricted = false, false
+local echoAura, echoRestricted = nil, false
 function UnitExists(unit) assert(unit == "target"); return targetExists end
 function UnitCanAttack(unit, target) assert(unit == "player" and target == "target"); return targetHostile end
 function UnitIsDeadOrGhost(unit) assert(unit == "target"); return targetDead end
 function UnitIsVisible(unit) assert(unit == "target"); return targetVisible end
 C_Secrets = { ShouldSpellAuraBeSecret = function(name)
     if name == "Judgement of the Crusader" then return targetRestricted end
+    if name == "Echo of Command" then return echoRestricted end
     return restrictedBuffs
 end }
 C_UnitAuras = {
@@ -127,6 +130,10 @@ C_UnitAuras = {
             return targetDebuff and setmetatable({}, { __index = function() error("Target aura fields must not be inspected") end }) or nil
         end
         assert(unit == "player" and filter == "HELPFUL")
+        if name == "Echo of Command" then
+            assert(not echoRestricted, "Secret echo data must not be queried")
+            return echoAura
+        end
         assert(not restrictedBuffs, "Secret aura data must never be queried")
         return activeBuffs[name] and setmetatable({}, { __index = function() error("Aura fields must not be inspected") end }) or nil
     end,
@@ -134,6 +141,7 @@ C_UnitAuras = {
 C_SpellBook = {
     FindSpellBookSlotForSpell = function(name)
         if name == "Hammer of Wrath" or name == "Holy Shock" then return nil end
+        if name == "Unsealed Wrath" and not unsealedLearned then return nil end
         if not known[name] then
             nextID = nextID + 1
             known[name] = nextID
@@ -452,6 +460,78 @@ SlashCmdList.MYPALLADIN("")
 SlashCmdList.MYPALLADIN("opener")
 assert(not addon.GetSettings().crusaderOpener and not panel:IsShown())
 assert(not sealAlert:IsShown(), "Disabling the opener must restore the normal seal reminder")
+unsealedLearned, weaponType, weaponSpeed = true, "INVTYPE_2HWEAPON", "Speed 3.40"
+activeBuffs = { ["Seal of Command"] = true }
+Emit("SPELLS_CHANGED")
+assert(not sealAlert:IsShown(), "Echo guidance only runs in combat")
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
+assert(FindText("Build echoes") and FindText("Echoes: 0/2 | Keep Command") and not panel:IsShown())
+echoAura = { spellId = 1311703, applications = 1 }
+Emit("UNIT_AURA", secret)
+assert(FindText("Echoes: 1/2 | Keep Command"))
+echoAura.applications = 2
+Emit("UNIT_AURA", secret)
+assert(FindText("Spend echoes") and sealAlert.icon.texture == known["Seal of Righteousness"])
+SetCheck("Crusader opener (long fights)", true)
+targetDebuff = false
+Emit("UNIT_AURA", secret)
+assert(FindText("Apply Crusader") and not FindText("Spend echoes"), "The long-fight opener takes priority")
+targetDebuff = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Spend echoes"), "Echo guidance resumes once the opener needs no action")
+SetCheck("Crusader opener (long fights)", false)
+activeBuffs = { ["Seal of Righteousness"] = true }
+Emit("UNIT_AURA", secret)
+for _ = 1, 3 do
+    Emit("SPELL_UPDATE_COOLDOWN")
+    Emit("UNIT_HEALTH", secret)
+    assert(FindText("Land a melee hit") and not FindText("Return to Command"), "Do not return merely because the seal changed or a hit was attempted")
+end
+echoAura = nil
+Emit("UNIT_AURA", secret)
+assert(FindText("Return to Command") and FindText("No Command echoes detected"))
+assert(sealAlert.icon.texture == known["Seal of Command"])
+activeBuffs = { ["Seal of Command"] = true }
+Emit("UNIT_AURA", secret)
+assert(FindText("Build echoes"))
+echoAura = { spellId = 1311703, applications = 3 }
+Emit("UNIT_AURA", secret)
+assert(FindText("Spend echoes"))
+targetDead = true
+Emit("UNIT_HEALTH", secret)
+assert(not sealAlert:IsShown())
+targetDead, targetExists = false, false
+Emit("PLAYER_TARGET_CHANGED")
+assert(not sealAlert:IsShown())
+targetExists = true
+Emit("PLAYER_TARGET_CHANGED")
+assert(FindText("Spend echoes"), "Changing target must retain actual player echoes")
+echoRestricted = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Check echoes") and FindText("Status restricted") and not FindText("Spend echoes"))
+echoRestricted, echoAura.applications = false, secret
+Emit("UNIT_AURA", secret)
+assert(FindText("Check echoes") and FindText("Status restricted"), "Secret counts must not be formatted")
+echoAura.spellId, echoAura.applications = 1311704, 2
+Emit("UNIT_AURA", secret)
+assert(FindText("Check echoes") and FindText("Status unavailable"))
+echoAura.spellId = 1311703
+SetCheck("Unsealed Wrath echoes", false)
+assert(not sealAlert:IsShown() and not addon.GetSettings().echoGuidance)
+SettingsProfile("Dungeon")
+assert(addon.GetSettings().echoGuidance and FindText("Spend echoes"))
+SettingsProfile("Leveling")
+assert(not addon.GetSettings().echoGuidance and not sealAlert:IsShown())
+local echoesReload = LoadProfiles()
+echoesReload.Initialize(MyPalladinDB)
+assert(not echoesReload.GetSettings().echoGuidance)
+SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALLADIN("echoes")
+assert(addon.GetSettings().echoGuidance and FindText("Spend echoes") and not panel:IsShown())
+SlashCmdList.MYPALLADIN("echoes")
+assert(not addon.GetSettings().echoGuidance and not sealAlert:IsShown())
+combat, unsealedLearned, weaponType = false, false, "INVTYPE_WEAPON"
 targetExists, activeBuffs = false, {}
 local firstCombatFrame = #frames + 1
 combat, restrictedBuffs = true, true
@@ -468,4 +548,4 @@ assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
 assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"])
-print("OK: per-profile settings, independent seal/opener alerts, target changes and safe restrictions/reload")
+print("OK: per-profile settings, independent seal/opener/echo alerts, profile settings and safe restrictions/reload")

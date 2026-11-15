@@ -45,7 +45,10 @@ function addon.Initialize(saved)
     for _, id in ipairs(addon.profileOrder) do
         local settings = saved.profileSettings[id]
         if type(settings) ~= "table" then settings = {} end
-        local defaults = { compact = saved.compact, buffWarnings = true, manaWarning = true, showPreparation = true, crusaderOpener = false }
+        local defaults = {
+            compact = saved.compact, buffWarnings = true, manaWarning = true,
+            showPreparation = true, crusaderOpener = false, echoGuidance = true,
+        }
         for key, value in pairs(defaults) do
             if type(settings[key]) ~= "boolean" then settings[key] = value end
         end
