@@ -12,12 +12,13 @@ for _, id in ipairs(addon.profileOrder) do
     addon.SelectProfile(id)
     local settings = addon.GetSettings()
     assert(not settings.compact and settings.buffWarnings and settings.manaWarning and settings.showPreparation)
-    assert(settings.manaThreshold == 20)
+    assert(settings.manaThreshold == 20 and not settings.crusaderOpener)
     assert(next(settings.hiddenSpells) == nil and next(settings.hiddenPreparation) == nil)
 end
 addon.SelectProfile("leveling")
 local leveling = addon.GetSettings()
 leveling.compact, leveling.manaThreshold, leveling.buffWarnings = true, 35, false
+leveling.crusaderOpener = true
 leveling.hiddenSpells.Judgement = true
 leveling.hiddenPreparation.Food = true
 assert(not addon.GetPreparationText():find("Food") and addon.GetPreparationText():find("Drinking water"))
@@ -25,23 +26,23 @@ for _, item in ipairs(addon.GetProfile().preparation) do leveling.hiddenPreparat
 assert(addon.GetPreparationText() == nil, "An empty preparation list must not leave a blank heading")
 addon.SelectProfile("dungeon")
 assert(addon.GetSettings() ~= leveling and addon.GetSettings().manaThreshold == 20)
-assert(not addon.GetSettings().hiddenSpells.Judgement)
+assert(not addon.GetSettings().hiddenSpells.Judgement and not addon.GetSettings().crusaderOpener)
 assert(not addon.GetSettings().compact and addon.GetSettings().buffWarnings)
 addon.SelectProfile("leveling")
 local reloaded = Load(legacy)
 assert(reloaded.GetSettings() == leveling and leveling.manaThreshold == 35)
-assert(leveling.hiddenSpells.Judgement and not leveling.buffWarnings)
+assert(leveling.hiddenSpells.Judgement and not leveling.buffWarnings and reloaded.GetSettings().crusaderOpener)
 local other = Load(nil)
 assert(other.GetSettings().compact and not other.GetSettings().hiddenSpells.Judgement)
 assert(other.GetSettings().hiddenSpells ~= leveling.hiddenSpells)
 for _, invalid in ipairs({ "bad", -1, 101, 0/0, math.huge, -math.huge }) do
     local recovered = Load({ profileSettings = { leveling = {
-        compact = "false", manaWarning = 1, buffWarnings = {}, showPreparation = "bad",
+        compact = "false", crusaderOpener = "true", manaWarning = 1, buffWarnings = {}, showPreparation = "bad",
         manaThreshold = invalid, hiddenSpells = { Judgement = "true", Exorcism = true }, hiddenPreparation = 2,
     }, dungeon = "bad" } })
     local settings = recovered.GetSettings()
     assert(settings.compact and settings.manaWarning and settings.buffWarnings and settings.showPreparation)
-    assert(settings.manaThreshold == 20 and settings.hiddenSpells.Judgement == nil)
+    assert(settings.manaThreshold == 20 and settings.hiddenSpells.Judgement == nil and not settings.crusaderOpener)
     assert(settings.hiddenSpells.Exorcism and next(settings.hiddenPreparation) == nil)
     recovered.SelectProfile("dungeon")
     assert(recovered.GetSettings().manaThreshold == 20)

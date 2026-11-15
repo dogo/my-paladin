@@ -26,11 +26,41 @@ local function UpdateMana()
     end
 end
 
-local function UpdateSealAlert(status)
+local function UpdateSealAlert(status, activeSeal)
     local combat = InCombatLockdown()
     sealAlert:EnableMouse(not combat)
     if combat then sealAlert:StopMovingOrSizing() end
-    if not addon.GetSettings().buffWarnings or not recommendedSealInfo or status == "active" then
+    if not addon.GetSettings().buffWarnings or not recommendedSealInfo then
+        sealAlert:Hide()
+        return
+    end
+    local step, info = addon.GetCrusaderStep(status, activeSeal)
+    if step then
+        sealTitle:SetTextColor(1, 0.5, 0.2)
+        if step == "apply" then
+            sealTitle:SetText("Apply Crusader")
+            sealName:SetText("Seal of the Crusader")
+            sealHelp:SetText("Long fight opener")
+        elseif step == "judge" then
+            sealTitle:SetText("Judge Crusader")
+            sealName:SetText("Judgement")
+            sealHelp:SetText("Use your Judgement / Holy Strike macro")
+        elseif step == "damage" then
+            sealTitle:SetText("Switch seal")
+            sealName:SetText(recommendedSeal)
+            sealHelp:SetText("Crusader debuff detected on target")
+            info = recommendedSealInfo
+        else
+            sealTitle:SetText("Check Crusader")
+            sealTitle:SetTextColor(0.7, 0.7, 0.7)
+            sealName:SetText("Crusader opener")
+            sealHelp:SetText(step == "restricted" and "Status restricted" or "Status unavailable")
+        end
+        sealAlert.icon:SetTexture(info.iconID)
+        sealAlert:Show()
+        return
+    end
+    if status == "active" then
         sealAlert:Hide()
         return
     end
@@ -54,7 +84,7 @@ end
 local function UpdateBuffs()
     local warn = addon.GetSettings().buffWarnings
     for index, group in ipairs(addon.buffGroups) do
-        local status, name = addon.GetBuffStatus(group)
+        local status, name, spellName = addon.GetBuffStatus(group)
         local label = buffLabels[index]
         if status == "active" then
             label:SetText(group.label .. ": " .. name)
@@ -66,7 +96,7 @@ local function UpdateBuffs()
             label:SetText(group.label .. (status == "restricted" and ": Restricted" or ": Unavailable"))
             label:SetTextColor(0.7, 0.7, 0.7)
         end
-        if index == 1 then UpdateSealAlert(status) end
+        if index == 1 then UpdateSealAlert(status, spellName) end
     end
 end
 
@@ -230,7 +260,7 @@ end
 local function CreateSettings()
     settingsPanel = CreateFrame("Frame", "MyPalladinSettings", UIParent, "BackdropTemplate")
     settingsPanel:Hide()
-    settingsPanel:SetSize(420, 508)
+    settingsPanel:SetSize(420, 534)
     settingsPanel:SetPoint("CENTER")
     settingsPanel:SetClampedToScreen(true)
     settingsPanel:EnableMouse(true)
@@ -255,6 +285,7 @@ local function CreateSettings()
         { "buffWarnings", "Highlight missing buffs" },
         { "manaWarning", "Warn low mana below" },
         { "showPreparation", "Show preparation when expanded" },
+        { "crusaderOpener", "Crusader opener (long fights)" },
     }
     for index, option in ipairs(options) do
         local key = option[1]
@@ -279,21 +310,21 @@ local function CreateSettings()
         end)
         if delta < 0 then thresholdMinus = button else thresholdPlus = button end
     end
-    Text(settingsPanel, "GameFontNormal", 16, -216, 388):SetText("Cooldowns (learned abilities only)")
+    Text(settingsPanel, "GameFontNormal", 16, -242, 388):SetText("Cooldowns (learned abilities only)")
     for index = 1, 8 do
-        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 238 + math.floor((index - 1) / 2) * 24, function(self)
+        spellChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 264 + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenSpells[addon.GetProfile().spells[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontNormal", 16, -346, 388):SetText("Preparation reminders")
+    Text(settingsPanel, "GameFontNormal", 16, -372, 388):SetText("Preparation reminders")
     for index = 1, 5 do
-        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 366 + math.floor((index - 1) / 2) * 24, function(self)
+        preparationChecks[index] = Check(settingsPanel, 16 + ((index - 1) % 2) * 200, 392 + math.floor((index - 1) / 2) * 24, function(self)
             addon.GetSettings().hiddenPreparation[addon.GetProfile().preparation[index]] = not self:GetChecked()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontDisableSmall", 16, -466, 388):SetText("Saved automatically for this character and profile.")
+    Text(settingsPanel, "GameFontDisableSmall", 16, -492, 388):SetText("Saved automatically for this character and profile.")
     settingsPanel:SetScript("OnShow", RefreshSettings)
 end
 
@@ -440,6 +471,11 @@ events:SetScript("OnEvent", function(self, event, unit)
                 panel:Show()
             elseif message == "settings" then
                 settingsPanel:SetShown(not settingsPanel:IsShown())
+            elseif message == "opener" then
+                local settings = addon.GetSettings()
+                settings.crusaderOpener = not settings.crusaderOpener
+                RefreshProfile()
+                Say("Crusader opener: " .. (settings.crusaderOpener and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
             else
                 ChooseProfile(message)
             end
@@ -452,14 +488,19 @@ events:SetScript("OnEvent", function(self, event, unit)
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
         self:RegisterEvent("PLAYER_REGEN_DISABLED")
         self:RegisterEvent("PLAYER_REGEN_ENABLED")
-        self:RegisterUnitEvent("UNIT_AURA", "player")
+        self:RegisterEvent("PLAYER_TARGET_CHANGED")
+        self:RegisterUnitEvent("UNIT_AURA", "player", "target")
+        self:RegisterUnitEvent("UNIT_HEALTH", "target")
+        self:RegisterUnitEvent("UNIT_FLAGS", "target")
+        self:RegisterUnitEvent("UNIT_FACTION", "target")
         self:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
         self:RegisterUnitEvent("UNIT_MAXPOWER", "player")
         RefreshProfile()
         Say("Active profile: " .. addon.GetProfile().name .. ". Use /mp to open or close.")
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
         if panel:IsShown() then UpdateMana() end
-    elseif event == "UNIT_AURA" then
+    elseif event == "UNIT_AURA" or event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH"
+        or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
         UpdateBuffs()
     elseif event == "SPELL_UPDATE_COOLDOWN" then
         if panel:IsShown() then UpdateCooldowns() end

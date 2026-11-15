@@ -72,7 +72,7 @@ function addon.GetRecommendedSeal()
     return righteousness, "Seal of Righteousness", "Weapon speed unavailable; Righteousness fallback"
 end
 
-function addon.GetBuffStatus(group)
+function addon.GetBuffStatus(group, unit, filter)
     if not C_UnitAuras or not C_UnitAuras.GetAuraDataBySpellName or not C_Secrets
         or not C_Secrets.ShouldSpellAuraBeSecret or not issecretvalue then
         return "unavailable"
@@ -85,7 +85,7 @@ function addon.GetBuffStatus(group)
         elseif secret then
             restricted = true
         else
-            local success, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, "player", name, "HELPFUL")
+            local success, aura = pcall(C_UnitAuras.GetAuraDataBySpellName, unit or "player", name, filter or "HELPFUL")
             if not success then
                 unavailable = true
             elseif issecretvalue(aura) then
@@ -93,13 +93,41 @@ function addon.GetBuffStatus(group)
             elseif aura then
                 -- Presence is sufficient; never inspect the returned aura's fields.
                 local displayName = name:gsub("^Seal of ", ""):gsub("^Blessing of ", ""):gsub(" Aura$", "")
-                return "active", displayName
+                return "active", displayName, name
             end
         end
     end
     if restricted then return "restricted" end
     if unavailable then return "unavailable" end
     return "missing"
+end
+
+function addon.GetCrusaderStep(sealStatus, activeSeal)
+    if not addon.GetSettings().crusaderOpener then return nil end
+    local crusader = addon.GetLearnedSpell("Seal of the Crusader")
+    local judgement = addon.GetLearnedSpell("Judgement")
+    if not crusader or not judgement or addon.GetLearnedSpell("Holy Shock") then return nil end
+    if not UnitExists or not UnitCanAttack or not UnitIsDeadOrGhost or not UnitIsVisible or not issecretvalue then
+        return "unavailable", crusader
+    end
+    local ok, exists, hostile, dead, visible = pcall(function()
+        return UnitExists("target"), UnitCanAttack("player", "target"), UnitIsDeadOrGhost("target"), UnitIsVisible("target")
+    end)
+    if not ok then return "unavailable", crusader end
+    local flags = { exists, hostile, dead, visible }
+    for index = 1, 4 do
+        if issecretvalue(flags[index]) then return "restricted", crusader end
+        if type(flags[index]) ~= "boolean" then return "unavailable", crusader end
+    end
+    if not exists or not hostile or dead or not visible then return nil end
+    if sealStatus ~= "active" and sealStatus ~= "missing" then return sealStatus, crusader end
+    local debuff = addon.GetBuffStatus({ spells = { "Judgement of the Crusader" } }, "target", "HARMFUL|PLAYER")
+    if debuff == "restricted" or debuff == "unavailable" then return debuff, crusader end
+    local crusaderActive = sealStatus == "active" and activeSeal == "Seal of the Crusader"
+    if debuff == "missing" then
+        return crusaderActive and "judge" or "apply", crusaderActive and judgement or crusader
+    end
+    if crusaderActive then return "damage" end
 end
 
 function addon.GetManaText(current, maximum, settings)

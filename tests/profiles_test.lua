@@ -109,9 +109,23 @@ UIParent, SlashCmdList = {}, {}
 C_Spell = { GetSpellCooldownDuration = function() return secret end }
 local activeBuffs = { ["Seal of Command"] = true, ["Blessing of Might"] = true, ["Retribution Aura"] = true }
 local restrictedBuffs = false
-C_Secrets = { ShouldSpellAuraBeSecret = function() return restrictedBuffs end }
+local targetExists, targetHostile, targetDead, targetVisible = false, true, false, true
+local targetDebuff, targetRestricted = false, false
+function UnitExists(unit) assert(unit == "target"); return targetExists end
+function UnitCanAttack(unit, target) assert(unit == "player" and target == "target"); return targetHostile end
+function UnitIsDeadOrGhost(unit) assert(unit == "target"); return targetDead end
+function UnitIsVisible(unit) assert(unit == "target"); return targetVisible end
+C_Secrets = { ShouldSpellAuraBeSecret = function(name)
+    if name == "Judgement of the Crusader" then return targetRestricted end
+    return restrictedBuffs
+end }
 C_UnitAuras = {
     GetAuraDataBySpellName = function(unit, name, filter)
+        if unit == "target" then
+            assert(name == "Judgement of the Crusader" and filter == "HARMFUL|PLAYER")
+            assert(not targetRestricted, "Secret target auras must not be queried")
+            return targetDebuff and setmetatable({}, { __index = function() error("Target aura fields must not be inspected") end }) or nil
+        end
         assert(unit == "player" and filter == "HELPFUL")
         assert(not restrictedBuffs, "Secret aura data must never be queried")
         return activeBuffs[name] and setmetatable({}, { __index = function() error("Aura fields must not be inspected") end }) or nil
@@ -379,6 +393,66 @@ SlashCmdList.MYPALLADIN("settings")
 assert(not settingsPanel:IsShown())
 SlashCmdList.MYPALLADIN("settings")
 assert(settingsPanel:IsShown())
+SetCheck("Crusader opener (long fights)", true)
+assert(levelingSettings.crusaderOpener and not FindText("Apply Crusader"))
+SlashCmdList.MYPALLADIN("settings")
+SlashCmdList.MYPALLADIN("")
+assert(not panel:IsShown())
+targetExists = true
+Emit("PLAYER_TARGET_CHANGED")
+assert(sealAlert:IsShown() and FindText("Apply Crusader") and sealAlert.icon.texture == known["Seal of the Crusader"])
+activeBuffs = { ["Seal of the Crusader"] = true }
+Emit("UNIT_AURA", secret)
+assert(FindText("Judge Crusader") and sealAlert.icon.texture == known.Judgement)
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
+Emit("SPELL_UPDATE_COOLDOWN")
+assert(FindText("Judge Crusader"), "Casting attempts/cooldown changes must not confirm a target debuff")
+targetDebuff = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Switch seal") and FindText("Crusader debuff detected on target"))
+assert(sealAlert.icon.texture == known["Seal of Righteousness"])
+activeBuffs = { ["Seal of Righteousness"] = true }
+Emit("UNIT_AURA", secret)
+assert(not sealAlert:IsShown() and not panel:IsShown())
+targetDebuff = false
+Emit("PLAYER_TARGET_CHANGED")
+assert(FindText("Apply Crusader"), "A new target must not inherit completion from the previous one")
+activeBuffs = { ["Seal of the Crusader"] = true }
+Emit("UNIT_AURA", secret)
+targetRestricted = true
+Emit("UNIT_AURA", secret)
+assert(FindText("Check Crusader") and FindText("Status restricted"))
+assert(not FindText("Judge Crusader") and not FindText("Switch seal"), "Restrictions must clear stale instructions")
+targetRestricted, targetDead = false, true
+Emit("UNIT_HEALTH", secret)
+assert(not sealAlert:IsShown(), "Dead targets must clear the opener")
+targetDead, targetHostile = false, false
+Emit("UNIT_FACTION", secret)
+assert(not sealAlert:IsShown(), "Friendly targets must not prompt an offensive opener")
+targetHostile, targetVisible = true, false
+Emit("UNIT_FLAGS", secret)
+assert(not sealAlert:IsShown(), "An invisible target must not imply a missing Judgement")
+targetVisible = true
+Emit("UNIT_FLAGS", secret)
+assert(FindText("Judge Crusader"))
+SetCheck("Highlight missing buffs", false)
+assert(not sealAlert:IsShown())
+SetCheck("Highlight missing buffs", true)
+assert(FindText("Judge Crusader"))
+combat = false
+SettingsProfile("Dungeon")
+assert(not addon.GetSettings().crusaderOpener and not sealAlert:IsShown())
+SettingsProfile("Leveling")
+assert(addon.GetSettings().crusaderOpener and FindText("Judge Crusader"))
+local openerReload = LoadProfiles()
+openerReload.Initialize(MyPalladinDB)
+assert(openerReload.GetSettings().crusaderOpener, "Opener preference must survive reload")
+SlashCmdList.MYPALLADIN("")
+SlashCmdList.MYPALLADIN("opener")
+assert(not addon.GetSettings().crusaderOpener and not panel:IsShown())
+assert(not sealAlert:IsShown(), "Disabling the opener must restore the normal seal reminder")
+targetExists, activeBuffs = false, {}
 local firstCombatFrame = #frames + 1
 combat, restrictedBuffs = true, true
 local combatAddon = LoadProfiles()
@@ -394,4 +468,4 @@ assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
 assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"])
-print("OK: per-profile settings, independent seal alerts, repeated combat renewal and safe restrictions/reload")
+print("OK: per-profile settings, independent seal/opener alerts, target changes and safe restrictions/reload")
