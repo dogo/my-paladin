@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install MyPaladin with backups and migrate the old MyPalladin settings. Close WoW first."""
+"""Install/update MyPaladin with backups. Close WoW for first installation or settings migration."""
 import argparse
 from datetime import datetime
 from pathlib import Path
@@ -23,8 +23,6 @@ def running_game():
 
 def install(game, source=ROOT / "MyPaladin"):
     game, source = Path(game), Path(source)
-    if running_game():
-        raise RuntimeError("Close World of Warcraft before installing; SavedVariables may be overwritten by the game.")
     if not (game / "WTF").is_dir() or not (game / "Interface/AddOns").is_dir():
         raise ValueError("Expected _forever_/WTF and _forever_/Interface/AddOns")
     toc = source / "MyPaladin.toc"
@@ -42,10 +40,12 @@ def install(game, source=ROOT / "MyPaladin"):
         if changed != 1:
             raise ValueError(f"Missing MyPalladinDB assignment in {old}; original preserved")
         migrations.append((old, target, content))
+    addons = game / "Interface/AddOns"
+    if running_game() and (migrations or (addons / "MyPalladin").exists() or not (addons / "MyPaladin").is_dir()):
+        raise RuntimeError("Close World of Warcraft for initial installation or settings migration; SavedVariables may be overwritten by the game.")
     backup_root = game / "Interface/MyPaladin-backups"
     backup_root.mkdir(exist_ok=True)
     backup = Path(tempfile.mkdtemp(prefix=datetime.now().strftime("%Y%m%d-%H%M%S-"), dir=backup_root))
-    addons = game / "Interface/AddOns"
     with tempfile.TemporaryDirectory(prefix="MyPaladin-install-", dir=game / "Interface") as temporary:
         staged = Path(temporary) / "MyPaladin"
         staged.mkdir()
@@ -87,7 +87,7 @@ def main():
         backup, count = install(args.game_dir)
     except (OSError, ValueError, RuntimeError) as error:
         parser.exit(1, f"Installation failed: {error}\n")
-    print(f"Installed MyPaladin. Migrated characters: {count}. Backup: {backup}")
+    print(f"Installed MyPaladin. Migrated characters: {count}. Backup: {backup}. Use /reload if already in game.")
 
 
 if __name__ == "__main__":

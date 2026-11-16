@@ -42,6 +42,8 @@ Para uma instalação nova manual, copie apenas `MyPaladin/`, sem pasta extra en
 
 Ao substituir os arquivos de uma instalação existente, use `/reload` para carregar a atualização.
 
+Desde a 0.9.0, o instalador permite atualizar uma instalação já migrada com o jogo aberto, sem tocar nas configurações salvas. Aguarde o comando terminar e use `/reload`. Primeira instalação ou migração do nome antigo continuam exigindo o jogo fechado.
+
 ## Uso
 
 | Comando | Ação |

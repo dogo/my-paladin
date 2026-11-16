@@ -127,9 +127,20 @@ class InstallationTests(unittest.TestCase):
             installer.install(self.game)
         self.assertTrue(self.old.exists())
         self.assertFalse(self.saved.with_name("MyPaladin.lua").exists())
+        self.saved.write_text(self.original)
         with patch.object(installer, "running_game", return_value=True), self.assertRaises(RuntimeError):
             installer.install(self.game)
         self.assertTrue(self.old.exists())
+
+    def test_existing_install_can_update_in_game_without_touching_settings(self):
+        installer.install(self.game)
+        saved = self.saved.with_name("MyPaladin.lua")
+        original = saved.read_bytes()
+        with patch.object(installer, "running_game", return_value=True):
+            _, count = installer.install(self.game)
+        self.assertEqual(count, 0)
+        self.assertEqual(saved.read_bytes(), original)
+        self.assertFalse(self.old.exists())
 
     def test_swap_failure_restores_installed_addon(self):
         rename = Path.rename
