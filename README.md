@@ -143,7 +143,7 @@ Na 0.9.0, a dica deixa de ser um lembrete permanente. Em combate, com alvo váli
 
 Na 0.9.1, os indicadores públicos `isEnabled`/`isActive` permitem verificar o cooldown mesmo quando seus tempos estão protegidos. Habilidade habilitada e sem cooldown ativo pode receber **Now** após as demais verificações. Cooldown ativo com tempos protegidos recebe **Wait**, com exibição nativa, sem contagem calculada. Se o indicador de atividade não estiver acessível, somente tempos públicos e válidos podem confirmar prontidão. A captura real da 0.9.0 havia ficado em **Check** por exigir esses tempos mesmo quando o indicador público poderia bastar.
 
-Consecration exige AoE selecionado manualmente e um alvo em alcance de Holy Strike como verificação conservadora de proximidade; não conta inimigos. Mana baixa pública evita esse gasto. Com mana bruta protegida, a possibilidade de pagar o custo vem de `IsSpellUsable`; não há garantia de sustentar vários casts. Hammer of Wrath ainda exige vida pública abaixo de 20%; Exorcism exige Undead/Demon público. Dados protegidos são descartados antes de qualquer cálculo. Uma opção inferior verificada pode ser indicada mesmo se a leitura de outra falhar; isso não garante prioridade ótima nessa situação.
+Consecration exige AoE selecionado manualmente e um alvo em alcance de Holy Strike como verificação conservadora de proximidade; não conta inimigos. Mana baixa pública evita esse gasto. Com mana bruta protegida, a possibilidade de pagar o custo vem de `IsSpellUsable`; não há garantia de sustentar vários casts. Hammer of Wrath entra quando o cliente o declara usável: o guia o limita a alvos abaixo de 20% de vida, e o jogo aplica esse limite mesmo com a vida secreta; Exorcism exige Undead/Demon público. Dados protegidos são descartados antes de qualquer cálculo. Uma opção inferior verificada pode ser indicada mesmo se a leitura de outra falhar; isso não garante prioridade ótima nessa situação.
 
 A animação de cooldown continua nativa. **Now** descreve o estado verificado naquele momento; não garante sucesso do cast, acerto, linha de visão ou ausência de mudanças entre a indicação e a ação. O addon não lança habilidades.
 
@@ -156,9 +156,9 @@ Durante combate, o motor reúne manutenção de selo/abertura e dano em uma indi
 - **Casting**: aguarde o cast atual; a indicação não pede dano no meio de uma cura.
 - **Wait / Check**: cooldown ativo ou impedimento explicado na linha abaixo do ícone.
 
-Com os tempos de cooldown protegidos, uma habilidade que estava pronta e não foi lançada continua indicada durante o GCD, como **Wait** com *Ready after the global cooldown*, por até 1,6s. Isso evita pular para Judgement em seu cooldown real a cada cast.
+Durante o GCD, a habilidade seguinte continua indicada. O campo público `isOnGCD` do cooldown decide quando disponível; sem ele, uma habilidade que estava pronta e não foi lançada continua indicada, como **Wait** com *Ready after the global cooldown*, por até 1,6s. Isso evita pular para Judgement em seu cooldown real a cada cast.
 
-Ao observar um cast próprio de selo, o motor mantém uma estimativa de 30 segundos e substitui o selo anterior. Uma leitura pública posterior corrige esse estado. Quando a leitura fica oculta, o vencimento estimado pode sugerir reaplicação; isso não prova que o selo durou até ali. Dispel ou remoção antecipada podem invalidar a estimativa. Um reload em combate sem leitura pública começa como desconhecido até haver nova evidência, sem inventar selo ativo ou ausente. Há uma tolerância de 0,25s para a atualização da aura após o evento de cast.
+Ao observar um cast próprio de selo, o motor mantém uma estimativa de 30 segundos e substitui o selo anterior. Com o selo restrito, a usabilidade pública de Judgement serve de evidência: o guia diz que Judgement libera o selo ativo, então Judgement inutilizável sem falta de mana indica ausência de selo, e Judgement usável impede pedir renovação após a estimativa vencer. Uma leitura pública posterior corrige esse estado. Quando a leitura fica oculta, o vencimento estimado pode sugerir reaplicação; isso não prova que o selo durou até ali. Dispel ou remoção antecipada podem invalidar a estimativa. Um reload em combate sem leitura pública começa como desconhecido até haver nova evidência, sem inventar selo ativo ou ausente. Há uma tolerância de 0,25s para a atualização da aura após o evento de cast.
 
 Com a abertura Crusader ativada, o histórico pode orientar julgar o selo e trocar para dano quando o debuff estiver oculto. Esse progresso é **estimado**, vale só para o alvo atual e é descartado ao trocar de alvo. Não confirma que o debuff acertou. O motor não simula contagens de ecos nem usa a heurística de 6/8 segundos do Sonah.
 
@@ -168,7 +168,7 @@ O leitor entende casts simples e a habilidade exibida pelo macro; não resolve s
 
 **Also ready** mostra uma segunda ação que também passou nas verificações atuais. É uma alternativa no estado atual, não uma previsão de como o combate ficará depois do próximo cast. Cooldown ativo/GCD continua bloqueando **Now**. Os testes locais verificam estimativa, substituição, expiração, reconciliação, casts, macro e destaque; a ajuda real e o tamanho/posição do HUD ainda precisam de validação em jogo.
 
-Dados restritos produzem orientação cinza para conferir as condições. A documentação de Forever marca `UnitHealth` como secreto; portanto não há garantia de indicação de Hammer of Wrath no cliente real.
+Dados restritos produzem orientação cinza para conferir as condições. A documentação de Forever marca `UnitHealth` como secreto; desde a 0.10.6, Hammer of Wrath depende da usabilidade pública, ainda sem validação no cliente.
 
 ### Diagnóstico da sessão
 

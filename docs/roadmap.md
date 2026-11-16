@@ -27,6 +27,7 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.10.3 | Destaque do botão passa a pulsar (borda com brilho aditivo e animação própria), sem reiniciar a cada atualização do HUD; validação visual pendente |
 | 0.10.4 | Brilho com a arte de proc da Blizzard (`UI-HUD-ActionBar-Proc-Loop-Flipbook`) num frame próprio, após o jogador achar a borda pulsante discreta; borda pulsante fica como alternativa sem o atlas; validação visual pendente |
 | 0.10.5 | Indicação estável durante o GCD com tempos protegidos (memória de habilidade pronta e não lançada, até 1,6s); fundo escuro atrás do texto da indicação; validação real pendente |
+| 0.10.6 | Técnicas da [leitura de código](pesquisa-addons-forever.md#leitura-do-código--2026-11-16): Hammer of Wrath pela usabilidade pública; usabilidade de Judgement como evidência de selo; `isOnGCD` público para separar GCD de cooldown real; validação real pendente |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.
