@@ -573,6 +573,11 @@ local function CreatePanel()
         elapsedHint = elapsedHint + elapsed
         if elapsedHint >= 0.1 then elapsedHint = 0; UpdateCombatHint() end
     end)
+    -- Dark backing keeps the text readable over bright scenery.
+    local hintBackground = combatHint:CreateTexture(nil, "BACKGROUND")
+    hintBackground:SetPoint("TOPLEFT", -6, 6)
+    hintBackground:SetPoint("BOTTOMRIGHT", 6, 14)
+    hintBackground:SetColorTexture(0, 0, 0, 0.6)
     combatHint.icon = combatHint:CreateTexture(nil, "ARTWORK")
     combatHint.icon:SetSize(64, 64)
     combatHint.icon:SetPoint("TOPLEFT")
