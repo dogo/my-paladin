@@ -85,6 +85,13 @@ local reloaded = setmetatable({}, {__index = addon})
 assert(loadfile("MyPaladin/CombatState.lua"))("MyPaladin", reloaded)
 raw = "restricted"
 assert(reloaded.GetSealEvidence() == "unknown")
+-- A fresh seal cast counts as settling for 1.5s.
+now = 190
+Cast("Seal of Command")
+now = 191.4
+assert(addon.SealJustCast())
+now = 191.6
+assert(not addon.SealJustCast())
 -- GCD-only cooldown memory: ready and not cast since, for at most 1.6s.
 now = 200
 addon.NoteSpellReady("Consecration")

@@ -122,6 +122,15 @@ Action("Seal of Righteousness", "estimated", "refresh it") -- GCD must not flip 
 cds[4] = nil
 Action("Seal of Righteousness", "estimated", "refresh it")
 addon.GetSealAction = nil
+-- Right after a seal cast the server has not applied it yet: Judgement waits instead of a grey check.
+local usableBeforeSeal = C_Spell.IsSpellUsable
+C_Spell.IsSpellUsable = function(id) if id == 1 then return false, false end return usableBeforeSeal(id) end
+cds[2] = {isEnabled = true, isActive = true, startTime = secret, duration = secret, modRate = secret}
+addon.SealJustCast = function() return true end
+Action("Judgement", "wait", "Seal applying")
+addon.SealJustCast = function() return false end
+Action("Judgement", "check", "unusable")
+addon.SealJustCast, C_Spell.IsSpellUsable, cds[2] = nil, usableBeforeSeal, nil
 C_Spell.GetSpellCooldown = function() error(secret) end
 Action("Judgement", "check", "C_Spell.GetSpellCooldown")
 C_Spell.GetSpellCooldown = nil

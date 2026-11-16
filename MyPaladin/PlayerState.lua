@@ -414,6 +414,9 @@ function addon.GetCombatAction(exclude)
                 return info, name, "Use now | " .. detail, false, "ready"
             end
             local candidate = { info, name, detail, true, "check" }
+            if state == "unusable" and name == "Judgement" and addon.SealJustCast and addon.SealJustCast() then
+                state, candidate[3] = "cooldown", "Seal applying"
+            end
             local gcdOnly = onGcd or (onGcd == nil and not remaining and addon.IsGcdOnlyCooldown and addon.IsGcdOnlyCooldown(name))
             if state == "cooldown" and gcdOnly then
                 -- Keep the next action through the GCD instead of jumping to a spell on its real cooldown.

@@ -91,6 +91,11 @@ local function JudgementSealProbe()
     if Public(noMana) and noMana == false then return "missing" end
 end
 
+-- The server needs a moment to apply a new seal; Judgement stays unusable meanwhile (seen up to ~1s in play).
+function addon.SealJustCast()
+    return seal ~= nil and seal.castAt ~= nil and GetTime() - seal.castAt < 1.5
+end
+
 function addon.GetSealEvidence()
     local status, _, name, aura = addon.GetBuffStatus(addon.buffGroups[1])
     if status == "active" then
@@ -111,7 +116,7 @@ function addon.GetSealEvidence()
     end
     local probe = JudgementSealProbe()
     if addon.TraceState then addon.TraceState("seal_probe", probe or "unknown", { detail = "Judgement usability" }) end
-    if probe == "missing" and not (seal and seal.castAt and GetTime() - seal.castAt < 0.25) then
+    if probe == "missing" and not addon.SealJustCast() then
         seal = nil
         return "missing", nil, "observed"
     end
