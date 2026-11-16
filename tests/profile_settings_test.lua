@@ -48,7 +48,7 @@ for _, invalid in ipairs({ "bad", -1, 101, 0/0, math.huge, -math.huge }) do
     local recovered = Load({ profileSettings = { leveling = {
         compact = "false", crusaderOpener = "true", echoGuidance = "false", manaWarning = 1, buffWarnings = {}, showPreparation = "bad",
         blessing = {}, aura = "Sanctity Aura",
-        combatMode = "auto", combatHints = 1,
+        combatMode = "area", combatHints = 1,
         manaThreshold = invalid, hiddenSpells = { Judgement = "true", Exorcism = true }, hiddenPreparation = 2,
     }, dungeon = "bad" } })
     local settings = recovered.GetSettings()

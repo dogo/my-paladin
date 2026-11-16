@@ -61,7 +61,7 @@ Desde a 0.9.0, o instalador permite atualizar uma instalação já migrada com o
 | `/mp settings` | Abre ou fecha as configurações |
 | `/mp opener` | Liga ou desliga a abertura com Crusader no perfil ativo |
 | `/mp echoes` | Liga ou desliga a orientação de ecos no perfil ativo |
-| `/mp single` / `/mp aoe` | Seleciona o contexto da luta no perfil ativo |
+| `/mp single` / `/mp aoe` / `/mp auto` | Seleciona o contexto da luta no perfil ativo |
 | `/mp move` | Mostra os avisos fora de combate para arrastá-los; repita para travar |
 | `/mp trace` | Mostra o estado do diagnóstico |
 | `/mp trace on` / `/mp trace off` | Liga ou desliga a gravação local |
@@ -135,6 +135,8 @@ A orientação usa a contagem do buff **Echo of Command**, seguindo o [ciclo PvE
 Use `/mp echoes` ou Settings para desligar a orientação no perfil ativo. **Highlight missing buffs** controla todos os avisos independentes. Ao carregar o addon já em combate, a orientação de ecos aguarda a verificação da arma fora de combate.
 
 ### Contexto da luta
+
+**Auto** (0.12.0) conta as nameplates inimigas vivas em alcance de Holy Strike e passa a AoE com 3 ou mais, mantendo AoE por 2s quando a contagem cai. O guia pede Consecration só ao matar muitos inimigos de uma vez, sem dar número; 3 é um ponto de partida a ajustar. Exige nameplates inimigas visíveis nas opções do jogo; sem elas, Auto fica em Single. O botão do topo alterna Single → AoE → Auto.
 
 O botão **Mode: Single** / **Mode: AoE** no topo do painel mostra o contexto atual; clique nele ou use os comandos correspondentes para alternar. A escolha é manual e fica salva por perfil. **Combat context hints** em Settings controla uma dica independente abaixo do aviso de selo, inclusive com o painel fechado.
 

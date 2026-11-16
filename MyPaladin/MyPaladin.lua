@@ -278,7 +278,7 @@ local function RefreshProfile()
         .. " manaWarning=" .. tostring(settings.manaWarning) .. " threshold=" .. settings.manaThreshold })
     heading:SetText("Active profile: " .. profile.name .. "  |  Level " .. UnitLevel("player"))
     focus:SetText(profile.focus)
-    contextButton:SetText(settings.combatMode == "aoe" and "Mode: AoE" or "Mode: Single")
+    contextButton:SetText(settings.combatMode == "aoe" and "Mode: AoE" or settings.combatMode == "auto" and "Mode: Auto" or "Mode: Single")
     preparation:SetText(addon.GetPreparationText() or "")
     for id, button in pairs(buttons) do
         if id == addon.db.activeProfile then
@@ -376,7 +376,8 @@ end
 
 local function ToggleContext()
     local settings = addon.GetSettings()
-    settings.combatMode = settings.combatMode == "aoe" and "single" or "aoe"
+    -- Single -> AoE -> Auto (nameplate count) -> Single.
+    settings.combatMode = settings.combatMode == "single" and "aoe" or settings.combatMode == "aoe" and "auto" or "single"
     RefreshProfile()
 end
 
@@ -385,7 +386,8 @@ RefreshSettings = function()
     settingsHeading:SetText("Editing profile: " .. profile.name)
     for id, button in pairs(settingsButtons) do button:SetEnabled(id ~= addon.db.activeProfile) end
     for key, check in pairs(settingsChecks) do check:SetChecked(settings[key]) end
-    contextSettingsButton:SetText(settings.combatMode == "aoe" and "Combat: Area (AoE)" or "Combat: Single target")
+    contextSettingsButton:SetText(settings.combatMode == "aoe" and "Combat: Area (AoE)"
+        or settings.combatMode == "auto" and "Combat: Auto (3+ enemy nameplates in melee)" or "Combat: Single target")
     for _, group in ipairs(addon.buffGroups) do
         if group.setting then
             local selected = settings[group.setting]
@@ -753,7 +755,7 @@ events:SetScript("OnEvent", function(self, event, unit, action, spellID)
                 Say("Echo guidance: " .. (settings.echoGuidance and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
             elseif message == "move" then
                 ToggleMove()
-            elseif message == "single" or message == "aoe" then
+            elseif message == "single" or message == "aoe" or message == "auto" then
                 addon.GetSettings().combatMode = message
                 RefreshProfile()
                 Say("Combat mode: " .. message .. " for " .. addon.GetProfile().name)
@@ -769,6 +771,8 @@ events:SetScript("OnEvent", function(self, event, unit, action, spellID)
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
         self:RegisterEvent("SPELL_UPDATE_USABLE")
         self:RegisterEvent("UPDATE_BINDINGS")
+        self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+        self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
         self:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
         self:RegisterEvent("UPDATE_MACROS")
         self:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
@@ -824,6 +828,8 @@ events:SetScript("OnEvent", function(self, event, unit, action, spellID)
         or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
         if event == "PLAYER_TARGET_CHANGED" then addon.CombatTargetChanged() end
         UpdateBuffs()
+    elseif event == "NAME_PLATE_UNIT_ADDED" or event == "NAME_PLATE_UNIT_REMOVED" then
+        addon.NamePlateChanged(unit, event == "NAME_PLATE_UNIT_ADDED")
     elseif event == "SPELL_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_USABLE" then
         if panel:IsShown() then UpdateCooldowns() end
         UpdateCombatHint()

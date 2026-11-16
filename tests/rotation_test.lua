@@ -141,6 +141,24 @@ C_Spell.GetSpellCooldown = function() error(secret) end
 Action("Judgement", "check", "C_Spell.GetSpellCooldown")
 C_Spell.GetSpellCooldown = nil
 Action("Judgement", "check", "unavailable")
+-- Auto mode: 3+ hostile nameplates in Holy Strike range switch to AoE, held 2s after the count drops.
+addon.GetSettings().combatMode = "auto"
+addon.NamePlateChanged("nameplate1", true)
+addon.NamePlateChanged("nameplate2", true)
+addon.NamePlateChanged(secret, true)
+assert(addon.CountNearbyEnemies() == 2 and not addon.IsAreaContext(), "Two enemies stay single target; secret tokens are ignored")
+addon.NamePlateChanged("nameplate3", true)
+assert(addon.IsAreaContext())
+addon.NamePlateChanged("nameplate3", false)
+assert(addon.IsAreaContext(), "Hold AoE briefly when the count drops")
+now = now + 2.1
+assert(not addon.IsAreaContext())
+addon.NamePlateChanged("nameplate3", true)
+ranges = secret
+assert(addon.CountNearbyEnemies() == 0, "Protected range never counts an enemy")
+ranges = true
+for unit in ipairs({1, 2, 3}) do addon.NamePlateChanged("nameplate" .. unit, false) end
+addon.GetSettings().combatMode = "single"
 target = false
 assert(addon.GetCombatAction() == nil)
 target, combat = true, false

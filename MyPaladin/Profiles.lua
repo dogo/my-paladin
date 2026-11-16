@@ -93,7 +93,7 @@ function addon.Initialize(saved)
                 if type(hidden) ~= "boolean" then settings[key][name] = nil end
             end
         end
-        if settings.combatMode ~= "single" and settings.combatMode ~= "aoe" then settings.combatMode = "single" end
+        if settings.combatMode ~= "single" and settings.combatMode ~= "aoe" and settings.combatMode ~= "auto" then settings.combatMode = "single" end
         saved.profileSettings[id] = settings
     end
     addon.db = saved

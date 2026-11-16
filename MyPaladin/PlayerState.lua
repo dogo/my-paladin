@@ -229,6 +229,43 @@ function addon.GetEchoStep(sealStatus, activeSeal, primarySeal)
     return "return", command, count
 end
 
+-- Enemy nameplates on screen, from NAME_PLATE_UNIT_ADDED/REMOVED; the player must show enemy nameplates.
+local plates, aoeUntil = {}, 0
+-- shortcut: the guide asks for Consecration only with "a lot of enemies" and gives no number; 3 is a common line, tune after play.
+local AOE_ENEMIES = 3
+
+function addon.NamePlateChanged(unit, added)
+    if not issecretvalue(unit) and type(unit) == "string" then plates[unit] = added or nil end
+end
+
+-- Hostile, living enemies within Holy Strike range: a conservative stand-in for Consecration's radius.
+function addon.CountNearbyEnemies()
+    local strike = addon.GetLearnedSpell("Holy Strike")
+    if not strike or not C_Spell or not C_Spell.IsSpellInRange or not UnitCanAttack or not UnitIsDeadOrGhost then return nil end
+    local count = 0
+    for unit in pairs(plates) do
+        local ok, hostile, dead, inRange = pcall(function()
+            return UnitCanAttack("player", unit), UnitIsDeadOrGhost(unit), C_Spell.IsSpellInRange(strike.spellID, unit)
+        end)
+        if ok and not issecretvalue(hostile) and hostile == true and not issecretvalue(dead) and dead == false
+            and not issecretvalue(inRange) and inRange == true then
+            count = count + 1
+        end
+    end
+    return count
+end
+
+function addon.IsAreaContext()
+    local mode = addon.GetSettings().combatMode
+    if mode ~= "auto" then return mode == "aoe" end
+    local count = addon.CountNearbyEnemies()
+    -- Hold AoE for 2s so one enemy stepping out of melee does not flip the hint back and forth.
+    if count and count >= AOE_ENEMIES then aoeUntil = GetTime() + 2 end
+    local area = GetTime() < aoeUntil
+    if InCombatLockdown() and addon.TraceState then addon.TraceState("auto_context", area and "aoe" or "single", { count = count }) end
+    return area
+end
+
 function addon.GetCombatHint(only)
     local settings = addon.GetSettings()
     if not settings.combatHints or not InCombatLockdown() then return nil end
@@ -262,7 +299,7 @@ function addon.GetCombatHint(only)
     elseif not only or only == "Hammer of Wrath" then
         Check("target_health", "not_checked", "Hammer of Wrath not learned; no health query needed")
     end
-    local consecration = (not only or only == "Consecration") and settings.combatMode == "aoe" and addon.GetLearnedSpell("Consecration")
+    local consecration = (not only or only == "Consecration") and addon.IsAreaContext() and addon.GetLearnedSpell("Consecration")
     if consecration then
         local ok, current, maximum = pcall(function() return UnitPower("player", 0), UnitPowerMax("player", 0) end)
         if not ok then
@@ -394,7 +431,7 @@ function addon.GetCombatAction(exclude)
     for _, name in ipairs(priority) do
         local info = addon.GetLearnedSpell(name)
         local eligible = name == "Judgement" or name == "Holy Strike"
-        if info and name == "Consecration" and settings.combatMode == "aoe" then
+        if info and name == "Consecration" and addon.IsAreaContext() then
             -- The client's usability flag checks the cast cost even when raw mana is secret.
             local ok, current, maximum = pcall(function() return UnitPower("player", 0), UnitPowerMax("player", 0) end)
             local _, low

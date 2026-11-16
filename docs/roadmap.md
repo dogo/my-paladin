@@ -34,6 +34,7 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.11.1 | O Forever agrupa os selos num único item **Seals** do Cooldown Manager (visto no cliente): presença pelo item, nome pelo `auraSpellID` público ou pelo último cast observado |
 | 0.11.3 | Item **Seals** apagado vira ausência observada quando cobre todos os selos aprendidos; pedido de selo fixo em `Now` durante o GCD. Na sessão anterior, com o Seals rastreado, o item mostrou o selo com nome quando aplicado fora de combate, `active_unnamed` após troca em combate e apagou no mesmo segundo em que Judgement indicou a queda |
 | 0.11.4 | Layout dos avisos: `Move alerts` (fecha o Settings, que fica arrastável)/`Lock alerts` e `Reset alert position` em Settings e `/mp move`, com modelo da indicação de combate fora de combate; fundo escuro também no aviso de selo |
+| 0.12.0 | Modo Auto: conta nameplates inimigas vivas em alcance de Holy Strike (`NAME_PLATE_UNIT_ADDED/REMOVED`, `IsSpellInRange` por unidade) e usa AoE com 3+, segurando 2s; limiar 3 é suposição a calibrar; validação real pendente |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.

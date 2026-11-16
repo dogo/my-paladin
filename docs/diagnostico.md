@@ -77,6 +77,8 @@ Na 0.10.0, `estimate/seal_cast` registra o início de uma estimativa de selo ap�
 
 `seal_viewer_map/mapped|none` (0.11.0) informa quantos itens do Cooldown Manager correspondem a selos; `seal_viewer/active` traz o selo visto num ícone de buff, `active_unnamed` indica o item agrupado **Seals** ativo sem informar qual selo, Sem selo visível, o estado diz o motivo: `no_map` (nenhum item de selo na API), `viewer_hidden` (visores de buff ocultos ou Cooldown Manager desligado), `item_absent` (o item **Seals** não está numa barra de buffs) ou `item_inactive` (o item está na barra, mas sem aura e sem cobrir todos os selos aprendidos). `seal_viewer/missing` (0.11.3) é ausência observada: o item agrupado está apagado e cobre todos os selos aprendidos.
 
+`auto_context/aoe|single` (0.12.0) registra a decisão do modo Auto em combate, com `count` de inimigos em alcance pelas nameplates.
+
 `bindings/mapped` registra quantas habilidades foram associadas a botões padrão; `unavailable` indica APIs ausentes. Desde a 0.10.1, `validated` registra quantos vínculos puderam ser revalidados durante combate; os demais são descartados até reconstrução fora de combate. Capturas anteriores usam `deferred` para o descarte completo do mapa durante combate. `action_binding/available|unbound` identifica se a ação principal tem uma tecla encontrada. Nenhum corpo de macro ou nome de macro é exportado para os registros.
 
 As verificações só acompanham caminhos executados pelo addon. Sem a habilidade aprendida ou sem uma condição que exija a consulta, não há teste artificial de permissão. Uma coleta não permite concluir que uma API estará sempre pública ou restrita. O adiamento voluntário do equipamento não comprova que o jogo proíba a consulta.
