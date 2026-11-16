@@ -762,16 +762,17 @@ GetBindingKey = function() return "2" end
 Emit("PLAYER_REGEN_ENABLED")
 combat = true
 Emit("PLAYER_REGEN_DISABLED")
-assert(FindText("Now: Holy Strike macro") and not FindText("Also ready: Holy Strike"))
+assert(FindText("Now: Judgement") and not FindText("Also ready: Holy Strike"))
+assert(FindText("Use now | Usability, range and cooldown checked | Press your Holy Strike macro; its button shows Holy Strike's cooldown"))
 cooldowns[known.Judgement], cooldowns[known["Holy Strike"]] = 8, 10
 events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known.Judgement)
-assert(FindText("Wait: Holy Strike macro") and not FindText("Now: Judgement"), "A confirmed macro cast must release the Judgement recommendation")
+assert(FindText("Wait: Judgement") and not FindText("Now: Judgement"), "A confirmed macro cast must release the Judgement recommendation")
 Emit("ACTIONBAR_SLOT_CHANGED", 2)
-assert(FindText("Wait: Holy Strike macro") and addon.ShowActionHint(known.Judgement, "wait") == "2",
+assert(FindText("Wait: Judgement") and addon.ShowActionHint(known.Judgement, "wait") == "2",
     "Macro notifications during combat must retain a verified binding")
 GetTime = function() return 50 end
 combatHint.scripts.OnUpdate(combatHint, 0.1)
-assert(FindText("Now: Holy Strike macro"), "Recommend the same macro again only after a spell becomes ready")
+assert(FindText("Now: Judgement"), "Recommend the same macro again only after a spell becomes ready")
 GetTime = clockBeforeEstimate
 cooldowns[known.Judgement], cooldowns[known["Holy Strike"]] = 0, 0
 ActionButton2, GetActionInfo, GetActionText, GetMacroBody, GetBindingKey = nil, nil, nil, nil, nil

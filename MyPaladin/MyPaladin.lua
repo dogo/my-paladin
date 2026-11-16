@@ -151,13 +151,14 @@ local function UpdateCombatHint()
     local key, actionLabel = addon.ShowActionHint(info.spellID, state)
     local prefix = state == "ready" and "Now: " or state == "estimated" and "Estimate: "
         or state == "wait" and "Wait: " or state == "casting" and "Casting: " or "Check: "
-    hintTitle:SetText(prefix .. (actionLabel or name))
+    -- Name the spell that is ready: a macro button shows the tooltip spell's cooldown, not this one's.
+    hintTitle:SetText(prefix .. name)
     if state == "ready" then hintTitle:SetTextColor(0.4, 1, 0.4)
     elseif state == "estimated" then hintTitle:SetTextColor(1, 0.7, 0.3)
     else hintTitle:SetTextColor(0.7, 0.7, 0.7) end
     if actionLabel then
-        help = name .. " | " .. help .. (state == "ready" and " | Use your Holy Strike macro"
-            or " | Included in your Holy Strike macro")
+        help = help .. (state == "ready" and " | Press your " .. actionLabel or " | Included in your " .. actionLabel)
+        if state == "ready" and name == "Judgement" then help = help .. "; its button shows Holy Strike's cooldown" end
     end
     hintKey:SetText(key or "")
     addon.TraceState("action_binding", key and "available" or "unbound", {spell = info.spellID})
