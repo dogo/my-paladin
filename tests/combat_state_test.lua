@@ -85,6 +85,35 @@ local reloaded = setmetatable({}, {__index = addon})
 assert(loadfile("MyPaladin/CombatState.lua"))("MyPaladin", reloaded)
 raw = "restricted"
 assert(reloaded.GetSealEvidence() == "unknown")
+-- Cooldown Manager items show seal presence when aura queries are restricted.
+local spellNames = {[20375] = "Seal of Command", [20154] = "Seal of Righteousness", [7] = "Blessing of Might"}
+C_Spell = {GetSpellName = function(id) return spellNames[id] end}
+C_CooldownViewer = {
+    GetCooldownViewerCategorySet = function(category) return category == 2 and {11, 12, 13} or {} end,
+    GetCooldownViewerCooldownInfo = function(id)
+        if id == 11 then return {spellID = 20375, linkedSpellIDs = {}} end
+        if id == 12 then return {spellID = 1, overrideSpellID = 20154, linkedSpellIDs = {}} end
+        return {spellID = 7, linkedSpellIDs = {}}
+    end,
+}
+local function Item(cooldownID, auraInstanceID, shown)
+    return {cooldownID = cooldownID, auraInstanceID = auraInstanceID, IsShown = function() return shown end}
+end
+local items = {}
+BuffIconCooldownViewer = {IsShown = function() return true end, GetChildren = function() return unpack(items) end}
+addon.RebuildCombatSpells()
+raw, seal, now = "restricted", nil, 300
+addon.ResetCombatEvidence()
+items = {Item(13, secret, true), Item(11, nil, true), Item(12, secret, true)}
+Evidence("active", "Seal of Righteousness", "observed")
+items = {Item(12, secret, false), Item(11, nil, true)}
+Evidence("unknown", nil, "unknown")
+items = {Item(secret, secret, true)}
+Evidence("unknown", nil, "unknown")
+items = {Item(11, 42, true)}
+Evidence("active", "Seal of Command", "observed")
+BuffIconCooldownViewer, C_CooldownViewer, items = nil, nil, {}
+addon.ResetCombatEvidence()
 -- A fresh seal cast counts as settling for 1.5s.
 now = 190
 Cast("Seal of Command")

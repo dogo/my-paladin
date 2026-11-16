@@ -30,6 +30,7 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.10.6 | Técnicas da [leitura de código](pesquisa-addons-forever.md#leitura-do-código--2026-11-16): Hammer of Wrath pela usabilidade pública; usabilidade de Judgement como evidência de selo; `isOnGCD` público para separar GCD de cooldown real; validação real pendente |
 | 0.10.7 | Título da indicação nomeia a habilidade pronta em vez de `Holy Strike macro`; com Judgement pronto e Holy Strike em cooldown, a ajuda explica que o botão do macro mostra o cooldown do Holy Strike. Na sessão da 0.10.6 o jogador viu o botão em cooldown e achou que o macro não funcionava, embora os casts de Judgement aparecessem 0–1s após cada indicação; a evidência de selo por Judgement indicou ausência exatamente 30s após cada cast |
 | 0.10.8 | Judgement inutilizável até 1,5s após um cast de selo vira espera (`Seal applying`), em vez do `Check` cinza de ~1s observado na 0.10.6; a evidência de ausência por Judgement respeita a mesma janela |
+| 0.11.0 | Presença do selo em combate pelos ícones de buff do Cooldown Manager (`cooldownID` mapeado por `C_CooldownViewer`, `auraInstanceID` presente), só como evidência positiva; requer o Cooldown Manager ligado com os selos rastreados; validação real pendente |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.

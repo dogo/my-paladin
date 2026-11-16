@@ -75,6 +75,8 @@ Na 0.10.0, `estimate/seal_cast` registra o início de uma estimativa de selo ap�
 
 `seal_probe/active|missing|unknown` (0.10.6) registra a evidência da usabilidade de Judgement quando a aura do selo está restrita; `unknown` cobre retorno protegido ou falta de mana.
 
+`seal_viewer_map/mapped|none` (0.11.0) informa quantos itens do Cooldown Manager correspondem a selos; `seal_viewer/active` traz o selo visto num ícone de buff e `not_shown` indica que nenhum ícone mapeado mostrava aura.
+
 `bindings/mapped` registra quantas habilidades foram associadas a botões padrão; `unavailable` indica APIs ausentes. Desde a 0.10.1, `validated` registra quantos vínculos puderam ser revalidados durante combate; os demais são descartados até reconstrução fora de combate. Capturas anteriores usam `deferred` para o descarte completo do mapa durante combate. `action_binding/available|unbound` identifica se a ação principal tem uma tecla encontrada. Nenhum corpo de macro ou nome de macro é exportado para os registros.
 
 As verificações só acompanham caminhos executados pelo addon. Sem a habilidade aprendida ou sem uma condição que exija a consulta, não há teste artificial de permissão. Uma coleta não permite concluir que uma API estará sempre pública ou restrita. O adiamento voluntário do equipamento não comprova que o jogo proíba a consulta.

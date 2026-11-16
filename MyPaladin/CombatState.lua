@@ -4,6 +4,11 @@ local readyAt = {}
 local targetEpoch, spells, learnedNames = 0, {}, {}
 local sealNames = {}
 for _, name in ipairs(addon.buffGroups[1].spells) do sealNames[name] = true end
+-- The game's Cooldown Manager keeps showing the player's auras in combat when addons can't read them.
+-- Its buff viewers' items hold a cooldownID and, while the aura is up, an auraInstanceID (Blizzard_CooldownViewer).
+local AURA_VIEWERS = { "BuffIconCooldownViewer", "BuffBarCooldownViewer" }
+local viewerSeals = {} -- cooldownID -> seal name, built from C_CooldownViewer
+local MapViewerSeals, ViewerSeal
 
 local function Public(value)
     return issecretvalue and not issecretvalue(value)
@@ -27,6 +32,61 @@ function addon.RebuildCombatSpells()
     for name in pairs(sealNames) do
         local info = addon.GetLearnedSpell(name)
         if info then spells[info.spellID], learnedNames[name] = name, true end
+    end
+    local mapped = MapViewerSeals()
+    if addon.TraceState then
+        addon.TraceState("seal_viewer_map", mapped > 0 and "mapped" or "none", { count = mapped, detail = "Cooldown Manager seal items" })
+    end
+end
+
+function MapViewerSeals()
+    viewerSeals = {}
+    local api = C_CooldownViewer
+    if not api or not api.GetCooldownViewerCategorySet or not api.GetCooldownViewerCooldownInfo
+        or not C_Spell or not C_Spell.GetSpellName then return 0 end
+    local count = 0
+    local function Note(cooldownID, spellID)
+        if not Public(spellID) or type(spellID) ~= "number" then return end
+        local ok, name = pcall(C_Spell.GetSpellName, spellID)
+        if ok and Public(name) and sealNames[name] and not viewerSeals[cooldownID] then
+            viewerSeals[cooldownID], count = name, count + 1
+        end
+    end
+    -- Every category: the player may move a seal to any bar, and the layout lives outside this API.
+    for category = 0, 8 do
+        local ok, ids = pcall(api.GetCooldownViewerCategorySet, category, false)
+        if ok and Public(ids) and type(ids) == "table" then
+            for _, cooldownID in ipairs(ids) do
+                local okInfo, info = pcall(api.GetCooldownViewerCooldownInfo, cooldownID)
+                if Public(cooldownID) and okInfo and Public(info) and type(info) == "table" then
+                    Note(cooldownID, info.spellID)
+                    Note(cooldownID, info.overrideSpellID)
+                    if type(info.linkedSpellIDs) == "table" then
+                        for _, linked in ipairs(info.linkedSpellIDs) do Note(cooldownID, linked) end
+                    end
+                end
+            end
+        end
+    end
+    return count
+end
+
+-- Positive evidence only: a seal missing from the bars may simply not be tracked there.
+function ViewerSeal()
+    if not next(viewerSeals) then return nil end
+    for _, viewerName in ipairs(AURA_VIEWERS) do
+        local viewer = _G[viewerName]
+        if viewer and viewer.IsShown and viewer.GetChildren and viewer:IsShown() then
+            for _, item in ipairs({ viewer:GetChildren() }) do
+                local cooldownID = rawget(item, "cooldownID")
+                local name = Public(cooldownID) and viewerSeals[cooldownID]
+                if name and item:IsShown() then
+                    local aura = rawget(item, "auraInstanceID")
+                    -- A secret ID is only tested for existence, never compared or read.
+                    if not Public(aura) or aura ~= nil then return name end
+                end
+            end
+        end
     end
 end
 
@@ -113,6 +173,12 @@ function addon.GetSealEvidence()
         if seal and seal.castAt and GetTime() - seal.castAt < 0.25 then return "active", seal.name, "estimated" end
         seal = nil
         return "missing", nil, "observed"
+    end
+    local shown = ViewerSeal()
+    if addon.TraceState then addon.TraceState("seal_viewer", shown and "active" or "not_shown", { detail = shown or "Cooldown Manager" }) end
+    if shown then
+        if not (seal and seal.name == shown) then seal = { name = shown } end
+        return "active", shown, "observed"
     end
     local probe = JudgementSealProbe()
     if addon.TraceState then addon.TraceState("seal_probe", probe or "unknown", { detail = "Judgement usability" }) end
