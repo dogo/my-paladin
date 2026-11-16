@@ -101,6 +101,14 @@ cds[2] = {isEnabled = true, isActive = true, startTime = secret, duration = secr
 Action("Consecration", "wait", "global cooldown")
 gcdOnly = {}
 Action("Judgement", "wait")
+-- A public isOnGCD overrides the memory both ways.
+cds[3] = {isEnabled = true, isActive = true, isOnGCD = false, startTime = secret, duration = secret, modRate = secret}
+gcdOnly = {Consecration = true}
+Action("Judgement", "wait")
+cds[3].isOnGCD, gcdOnly = true, {}
+Action("Consecration", "wait", "global cooldown")
+cds[3].isOnGCD = secret
+Action("Judgement", "wait")
 addon.GetSettings().combatMode = "single"
 addon.NoteSpellReady, addon.IsGcdOnlyCooldown = nil, nil
 cds[1], cds[2], cds[3] = nil, nil, nil

@@ -298,9 +298,9 @@ end
 function addon.GetSpellReadiness(info, name, area, selfCast)
     local probe = "readiness_" .. name:gsub("%W", "_")
     local readyDetail = selfCast and "Usability and self-cast cooldown checked" or "Usability, range and cooldown checked"
-    local function Result(state, detail, remaining)
+    local function Result(state, detail, remaining, onGcd)
         Check(probe, state, detail)
-        return state, detail, remaining
+        return state, detail, remaining, onGcd
     end
     if not issecretvalue or not C_Spell or not C_Spell.IsSpellUsable or not C_Spell.GetSpellCooldown
         or (not selfCast and not C_Spell.IsSpellInRange) then
@@ -337,9 +337,15 @@ function addon.GetSpellReadiness(info, name, area, selfCast)
     Check("cooldown_activity_" .. name:gsub("%W", "_"), activityKnown and "public"
         or (issecretvalue(active) and "restricted" or "unavailable"), "C_Spell.GetSpellCooldown isActive flag")
     if activityKnown and not active then return Result("ready", readyDetail) end
+    -- isOnGCD is NeverSecret on Forever: true means only the global cooldown runs, false a real cooldown.
+    local gcdRead, onGcd = pcall(function() return cooldown.isOnGCD end)
+    local gcdKnown = activityKnown and gcdRead and not issecretvalue(onGcd) and type(onGcd) == "boolean"
+    if gcdKnown and onGcd then return Result("cooldown", "Global cooldown", nil, true) end
+    local realCooldown = nil
+    if gcdKnown then realCooldown = false end
     local function TimingUnavailable(state, detail)
         Check("cooldown_timing_" .. name:gsub("%W", "_"), state, detail)
-        if activityKnown then return Result("cooldown", "Cooldown active; timing unavailable") end
+        if activityKnown then return Result("cooldown", "Cooldown active; timing unavailable", nil, realCooldown) end
         return Result(state, detail)
     end
     local fieldsOK, start, duration, rate = pcall(function()
@@ -393,18 +399,23 @@ function addon.GetCombatAction(exclude)
             local _, low
             if ok then _, low = addon.GetManaText(current, maximum, settings) end
             eligible = not low
+        elseif info and name == "Hammer of Wrath" then
+            -- Guide: usable only below 20% health. Health is secret, but the client's public usability enforces it.
+            local ok, usable = pcall(C_Spell.IsSpellUsable, info.spellID)
+            eligible = ok and not issecretvalue(usable) and usable == true
         elseif info and not eligible then
             local candidate, _, _, uncertain = addon.GetCombatHint(name)
             eligible = candidate ~= nil and not uncertain
         end
         if info and info.spellID ~= exclude and eligible then
-            local state, detail, remaining = addon.GetSpellReadiness(info, name, name == "Consecration")
+            local state, detail, remaining, onGcd = addon.GetSpellReadiness(info, name, name == "Consecration")
             if state == "ready" then
                 if addon.NoteSpellReady then addon.NoteSpellReady(name) end
                 return info, name, "Use now | " .. detail, false, "ready"
             end
             local candidate = { info, name, detail, true, "check" }
-            if state == "cooldown" and not remaining and addon.IsGcdOnlyCooldown and addon.IsGcdOnlyCooldown(name) then
+            local gcdOnly = onGcd or (onGcd == nil and not remaining and addon.IsGcdOnlyCooldown and addon.IsGcdOnlyCooldown(name))
+            if state == "cooldown" and gcdOnly then
                 -- Keep the next action through the GCD instead of jumping to a spell on its real cooldown.
                 candidate[3], candidate[4], candidate[5], candidate.gcd = "Ready after the global cooldown", false, "wait", true
                 if not (waiting and waiting.gcd) then waiting = candidate end

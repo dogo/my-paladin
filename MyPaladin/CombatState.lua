@@ -80,6 +80,17 @@ function addon.GetCombatCast()
     return true, name and addon.GetLearnedSpell(name), name
 end
 
+-- Guide: Judgement unleashes the active seal, so its public usability tells whether any seal is up.
+-- Lack of mana makes it unusable too, so that case proves nothing.
+local function JudgementSealProbe()
+    local info = addon.GetLearnedSpell("Judgement")
+    if not info or not C_Spell or not C_Spell.IsSpellUsable then return nil end
+    local ok, usable, noMana = pcall(C_Spell.IsSpellUsable, info.spellID)
+    if not ok or not Public(usable) or type(usable) ~= "boolean" then return nil end
+    if usable then return "active" end
+    if Public(noMana) and noMana == false then return "missing" end
+end
+
 function addon.GetSealEvidence()
     local status, _, name, aura = addon.GetBuffStatus(addon.buffGroups[1])
     if status == "active" then
@@ -98,8 +109,15 @@ function addon.GetSealEvidence()
         seal = nil
         return "missing", nil, "observed"
     end
+    local probe = JudgementSealProbe()
+    if addon.TraceState then addon.TraceState("seal_probe", probe or "unknown", { detail = "Judgement usability" }) end
+    if probe == "missing" and not (seal and seal.castAt and GetTime() - seal.castAt < 0.25) then
+        seal = nil
+        return "missing", nil, "observed"
+    end
     if seal and seal.expires then
-        if seal.expires > GetTime() then return "active", seal.name, "estimated" end
+        -- A usable Judgement means some seal outlived the estimate (a missed recast); keep the tracked name.
+        if seal.expires > GetTime() or probe == "active" then return "active", seal.name, "estimated" end
         return "missing", nil, "estimated"
     end
     return "unknown", nil, "unknown"

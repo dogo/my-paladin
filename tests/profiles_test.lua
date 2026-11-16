@@ -681,10 +681,14 @@ assert(FindText("Wait: Judgement"), "Never recommend Exorcism without an eligibl
 creatureType, hammerLearned, targetHealth = "Humanoid", true, 19
 Emit("SPELLS_CHANGED")
 assert(FindText("Now: Hammer of Wrath"))
-targetHealth = 20
+-- The client makes Hammer of Wrath unusable at 20% health or more.
+targetHealth, usable[known["Hammer of Wrath"]] = 20, false
 Emit("UNIT_HEALTH", secret)
 assert(FindText("Wait: Judgement"))
-targetHealth = secret
+targetHealth, usable[known["Hammer of Wrath"]] = secret, true
+Emit("UNIT_HEALTH", secret)
+assert(FindText("Now: Hammer of Wrath"), "Secret health: the client's public usability enforces the execute window")
+usable[known["Hammer of Wrath"]] = false
 Emit("UNIT_HEALTH", secret)
 assert(not FindText("Now: Hammer of Wrath") and FindText("Wait: Judgement"))
 targetDead = true
@@ -719,8 +723,23 @@ GetTime = function() return estimateTime end
 events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known["Seal of Righteousness"])
 assert(FindText("Now: Judgement") and not sealAlert:IsShown())
 estimateTime = 131
+local usableBeforeProbe = C_Spell.IsSpellUsable
+-- Judgement usability is the seal probe: usable means some seal is still up.
+combatHint.scripts.OnUpdate(combatHint, 0.1)
+assert(FindText("Now: Judgement"), "A usable Judgement proves a seal outlived the estimate")
+C_Spell.IsSpellUsable = function(id)
+    if id == known.Judgement then return secret, secret end
+    return usableBeforeProbe(id)
+end
 combatHint.scripts.OnUpdate(combatHint, 0.1)
 assert(FindText("Estimate: Seal of Righteousness"), "Hidden seal expiry must produce an explicitly estimated maintenance action")
+C_Spell.IsSpellUsable = function(id)
+    if id == known.Judgement then return false, false end
+    return usableBeforeProbe(id)
+end
+combatHint.scripts.OnUpdate(combatHint, 0.1)
+assert(FindText("Now: Seal of Righteousness"), "Judgement unusable without lack of mana is observed seal absence")
+C_Spell.IsSpellUsable = usableBeforeProbe
 events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known["Seal of Righteousness"])
 assert(FindText("Now: Judgement"), "Recasting the seal must release the damage rotation")
 events.scripts.OnEvent(events, "UNIT_SPELLCAST_START", "player", secret, known["Holy Light"])
