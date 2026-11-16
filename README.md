@@ -62,6 +62,7 @@ Desde a 0.9.0, o instalador permite atualizar uma instalação já migrada com o
 | `/mp opener` | Liga ou desliga a abertura com Crusader no perfil ativo |
 | `/mp echoes` | Liga ou desliga a orientação de ecos no perfil ativo |
 | `/mp single` / `/mp aoe` | Seleciona o contexto da luta no perfil ativo |
+| `/mp move` | Mostra os avisos fora de combate para arrastá-los; repita para travar |
 | `/mp trace` | Mostra o estado do diagnóstico |
 | `/mp trace on` / `/mp trace off` | Liga ou desliga a gravação local |
 | `/mp trace mark texto` | Marca um momento da sessão para análise |
@@ -96,7 +97,7 @@ Quando detecta ausência de selo, o addon mostra **Seal missing** com o ícone e
 
 A recomendação considera os selos aprendidos, Holy Shock e a arma equipada. Fora da abertura e da orientação de ecos, qualquer selo ativo oculta o aviso.
 
-Arraste o aviso fora de combate para reposicioná-lo. Durante combate, ele deixa passar os cliques. A opção **Highlight missing buffs** controla esse aviso por perfil.
+Para posicionar os avisos, use **Move alerts** em Settings ou `/mp move`: fora de combate aparecem o aviso de selo e um modelo da indicação de combate, que acompanha o aviso de selo. Arraste e clique em **Lock alerts**. **Reset alert position** volta à posição padrão. Durante combate, os avisos deixam passar os cliques. A opção **Highlight missing buffs** controla esse aviso por perfil.
 
 ### Abertura com Crusader
 

@@ -819,4 +819,21 @@ local blocked = MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]
 assert(blocked:find('"feature":"error"', 1, true) and blocked:find('"detail":"ProtectedFunction"', 1, true))
 SlashCmdList.MYPALADIN("trace mark validation")
 assert(MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]:find('"detail":"validation"', 1, true))
+-- /mp move shows both HUDs out of combat so they can be placed; combat refuses and locks.
+local moveHint
+for _, frame in ipairs(frames) do if frame.name == "MyPaladinCombatHint" then moveHint = frame end end
+combat = true
+SlashCmdList.MYPALADIN("move")
+assert(not FindText("Drag to move"), "Moving is refused in combat")
+combat = false
+SlashCmdList.MYPALADIN("move")
+assert(combatSealAlert:IsShown() and FindText("Drag to move") and moveHint:IsShown() and FindText("Combat hint"))
+SlashCmdList.MYPALADIN("move")
+assert(not moveHint:IsShown(), "Locking hides the placeholder hint out of combat")
+local moveButton
+for _, frame in ipairs(frames) do if frame.text == "Move alerts" then moveButton = frame end end
+moveButton.scripts.OnClick()
+assert(moveHint:IsShown() and moveButton.text == "Lock alerts", "Settings button toggles the same layout mode")
+moveButton.scripts.OnClick()
+assert(not moveHint:IsShown() and moveButton.text == "Move alerts" and FindText("Reset alert position"))
 print("OK: per-profile settings, independent seal/opener/echo/context hints, assignments and safe restrictions/reload")

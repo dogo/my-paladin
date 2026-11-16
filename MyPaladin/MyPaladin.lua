@@ -9,6 +9,8 @@ local settingsChecks, spellChecks, preparationChecks, settingsButtons, assignmen
 local RefreshSettings
 local contextButton, contextSettingsButton, combatHint, hintTitle, hintHelp, hintCooldown
 local hintKey, hintAlternative
+-- /mp move: both HUDs only appear in combat, where dragging is blocked, so show placeholders out of combat.
+local moving, moveButton = false, nil
 
 local function Say(message)
     print("|cffffca65My Paladin:|r " .. message)
@@ -33,7 +35,20 @@ end
 local function UpdateSealAlert(status, activeSeal)
     local combat = InCombatLockdown()
     sealAlert:EnableMouse(not combat)
-    if combat then sealAlert:StopMovingOrSizing() end
+    if combat then
+        sealAlert:StopMovingOrSizing()
+        moving = false
+        if moveButton then moveButton:SetText("Move alerts") end
+    end
+    if moving then
+        sealAlert.icon:SetTexture(recommendedSealInfo and recommendedSealInfo.iconID or 134400)
+        sealTitle:SetText("Drag to move")
+        sealTitle:SetTextColor(1, 0.82, 0)
+        sealName:SetText("The combat hint follows below")
+        sealHelp:SetText("/mp move to lock")
+        sealAlert:Show()
+        return
+    end
     if addon.combatPlayerDead or (combat and addon.GetSettings().combatHints) then
         sealAlert:Hide()
         addon.TraceState("seal_hud", "hidden", { detail = "Maintenance merged into combat engine" })
@@ -147,6 +162,17 @@ local function Backing(frame, bottom)
 end
 
 local function UpdateCombatHint()
+    if moving then
+        combatHint.icon:SetTexture(134400)
+        hintTitle:SetText("Combat hint")
+        hintTitle:SetTextColor(0.7, 0.7, 0.7)
+        hintHelp:SetText("Shown here during combat")
+        hintKey:SetText("")
+        hintAlternative:SetText("")
+        hintCooldown:Clear()
+        combatHint:Show()
+        return
+    end
     local info, name, help, uncertain, state = addon.GetCombatAction()
     if not info then
         hintCooldown:Clear()
@@ -390,6 +416,24 @@ RefreshSettings = function()
     end
 end
 
+local function ToggleMove()
+    if InCombatLockdown() then
+        Say("Leave combat to move the alerts.")
+        return
+    end
+    moving = not moving
+    moveButton:SetText(moving and "Lock alerts" or "Move alerts")
+    RefreshProfile()
+    UpdateCombatHint()
+    Say(moving and "Drag the seal alert; the combat hint moves with it." or "Alert position locked.")
+end
+
+local function ResetAlertPosition()
+    sealAlert:ClearAllPoints()
+    sealAlert:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+    sealAlert:SetUserPlaced(false)
+end
+
 local function Check(parent, x, y, callback)
     local check = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
     check:SetSize(24, 24)
@@ -405,7 +449,7 @@ local function CreateSettings()
     local footerY = prepY + 20 + math.ceil(addon.maxPreparation / 2) * 24 + 18
     settingsPanel = CreateFrame("Frame", "MyPaladinSettings", UIParent, "BackdropTemplate")
     settingsPanel:Hide()
-    settingsPanel:SetSize(420, footerY + 36)
+    settingsPanel:SetSize(420, footerY + 66)
     settingsPanel:SetPoint("CENTER")
     settingsPanel:SetClampedToScreen(true)
     settingsPanel:EnableMouse(true)
@@ -493,7 +537,18 @@ local function CreateSettings()
             RefreshProfile()
         end)
     end
-    Text(settingsPanel, "GameFontDisableSmall", 16, -footerY, 388):SetText("Saved automatically for this character and profile.")
+    -- Alert layout: the HUDs only show in combat, so placement needs an explicit out-of-combat mode.
+    moveButton = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+    moveButton:SetSize(190, 22)
+    moveButton:SetPoint("TOPLEFT", 16, -footerY)
+    moveButton:SetText("Move alerts")
+    moveButton:SetScript("OnClick", ToggleMove)
+    local resetButton = CreateFrame("Button", nil, settingsPanel, "UIPanelButtonTemplate")
+    resetButton:SetSize(190, 22)
+    resetButton:SetPoint("TOPLEFT", 214, -footerY)
+    resetButton:SetText("Reset alert position")
+    resetButton:SetScript("OnClick", ResetAlertPosition)
+    Text(settingsPanel, "GameFontDisableSmall", 16, -footerY - 30, 388):SetText("Saved automatically for this character and profile.")
     settingsPanel:SetScript("OnShow", RefreshSettings)
 end
 
@@ -687,6 +742,8 @@ events:SetScript("OnEvent", function(self, event, unit, action, spellID)
                 settings.echoGuidance = not settings.echoGuidance
                 RefreshProfile()
                 Say("Echo guidance: " .. (settings.echoGuidance and "enabled" or "disabled") .. " for " .. addon.GetProfile().name)
+            elseif message == "move" then
+                ToggleMove()
             elseif message == "single" or message == "aoe" then
                 addon.GetSettings().combatMode = message
                 RefreshProfile()
