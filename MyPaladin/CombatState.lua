@@ -7,7 +7,8 @@ for _, name in ipairs(addon.buffGroups[1].spells) do sealNames[name] = true end
 -- The game's Cooldown Manager keeps showing the player's auras in combat when addons can't read them.
 -- Its buff viewers' items hold a cooldownID and, while the aura is up, an auraInstanceID (Blizzard_CooldownViewer).
 local AURA_VIEWERS = { "BuffIconCooldownViewer", "BuffBarCooldownViewer" }
-local viewerSeals = {} -- cooldownID -> seal name, built from C_CooldownViewer
+-- cooldownID -> {sealName = true}; Forever groups every seal in one "Seals" item, so a set, not a name.
+local viewerSeals = {}
 local MapViewerSeals, ViewerSeal
 
 local function Public(value)
@@ -48,8 +49,9 @@ function MapViewerSeals()
     local function Note(cooldownID, spellID)
         if not Public(spellID) or type(spellID) ~= "number" then return end
         local ok, name = pcall(C_Spell.GetSpellName, spellID)
-        if ok and Public(name) and sealNames[name] and not viewerSeals[cooldownID] then
-            viewerSeals[cooldownID], count = name, count + 1
+        if ok and Public(name) and sealNames[name] then
+            if not viewerSeals[cooldownID] then viewerSeals[cooldownID], count = {}, count + 1 end
+            viewerSeals[cooldownID][name] = true
         end
     end
     -- Every category: the player may move a seal to any bar, and the layout lives outside this API.
@@ -71,7 +73,17 @@ function MapViewerSeals()
     return count
 end
 
+local function OnlyMember(members)
+    local only
+    for name in pairs(members) do
+        if only then return nil end
+        only = name
+    end
+    return only
+end
+
 -- Positive evidence only: a seal missing from the bars may simply not be tracked there.
+-- Returns presence and, when the item tells it, which seal.
 function ViewerSeal()
     if not next(viewerSeals) then return nil end
     for _, viewerName in ipairs(AURA_VIEWERS) do
@@ -79,11 +91,19 @@ function ViewerSeal()
         if viewer and viewer.IsShown and viewer.GetChildren and viewer:IsShown() then
             for _, item in ipairs({ viewer:GetChildren() }) do
                 local cooldownID = rawget(item, "cooldownID")
-                local name = Public(cooldownID) and viewerSeals[cooldownID]
-                if name and item:IsShown() then
+                local members = Public(cooldownID) and viewerSeals[cooldownID]
+                if members and item:IsShown() then
                     local aura = rawget(item, "auraInstanceID")
                     -- A secret ID is only tested for existence, never compared or read.
-                    if not Public(aura) or aura ~= nil then return name end
+                    if not Public(aura) or aura ~= nil then
+                        local name = OnlyMember(members)
+                        local auraSpell = rawget(item, "auraSpellID")
+                        if not name and Public(auraSpell) and type(auraSpell) == "number" and C_Spell and C_Spell.GetSpellName then
+                            local ok, spellName = pcall(C_Spell.GetSpellName, auraSpell)
+                            if ok and Public(spellName) and members[spellName] then name = spellName end
+                        end
+                        return true, name
+                    end
                 end
             end
         end
@@ -174,11 +194,19 @@ function addon.GetSealEvidence()
         seal = nil
         return "missing", nil, "observed"
     end
-    local shown = ViewerSeal()
-    if addon.TraceState then addon.TraceState("seal_viewer", shown and "active" or "not_shown", { detail = shown or "Cooldown Manager" }) end
+    local shown, shownName = ViewerSeal()
+    if addon.TraceState then
+        addon.TraceState("seal_viewer", shown and (shownName and "active" or "active_unnamed") or "not_shown",
+            { detail = shownName or "Cooldown Manager" })
+    end
     if shown then
-        if not (seal and seal.name == shown) then seal = { name = shown } end
-        return "active", shown, "observed"
+        if shownName then
+            if not (seal and seal.name == shownName) then seal = { name = shownName } end
+            return "active", shownName, "observed"
+        end
+        -- The family item proves a seal is up; which one comes from our last observed cast.
+        if seal and seal.name then return "active", seal.name, "estimated" end
+        return "unknown", nil, "unknown"
     end
     local probe = JudgementSealProbe()
     if addon.TraceState then addon.TraceState("seal_probe", probe or "unknown", { detail = "Judgement usability" }) end

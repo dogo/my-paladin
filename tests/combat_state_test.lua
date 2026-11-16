@@ -89,15 +89,17 @@ assert(reloaded.GetSealEvidence() == "unknown")
 local spellNames = {[20375] = "Seal of Command", [20154] = "Seal of Righteousness", [7] = "Blessing of Might"}
 C_Spell = {GetSpellName = function(id) return spellNames[id] end}
 C_CooldownViewer = {
-    GetCooldownViewerCategorySet = function(category) return category == 2 and {11, 12, 13} or {} end,
+    GetCooldownViewerCategorySet = function(category) return category == 2 and {11, 12, 13, 14} or {} end,
     GetCooldownViewerCooldownInfo = function(id)
         if id == 11 then return {spellID = 20375, linkedSpellIDs = {}} end
         if id == 12 then return {spellID = 1, overrideSpellID = 20154, linkedSpellIDs = {}} end
+        if id == 14 then return {spellID = 999, linkedSpellIDs = {20375, 20154}} end
         return {spellID = 7, linkedSpellIDs = {}}
     end,
 }
-local function Item(cooldownID, auraInstanceID, shown)
-    return {cooldownID = cooldownID, auraInstanceID = auraInstanceID, IsShown = function() return shown end}
+local function Item(cooldownID, auraInstanceID, shown, auraSpellID)
+    return {cooldownID = cooldownID, auraInstanceID = auraInstanceID, auraSpellID = auraSpellID,
+        IsShown = function() return shown end}
 end
 local items = {}
 BuffIconCooldownViewer = {IsShown = function() return true end, GetChildren = function() return unpack(items) end}
@@ -112,6 +114,16 @@ items = {Item(secret, secret, true)}
 Evidence("unknown", nil, "unknown")
 items = {Item(11, 42, true)}
 Evidence("active", "Seal of Command", "observed")
+-- Forever's grouped "Seals" item: a public auraSpellID names the seal, a secret one falls back to our last cast.
+addon.ResetCombatEvidence()
+items = {Item(14, secret, true, 20154)}
+Evidence("active", "Seal of Righteousness", "observed")
+addon.ResetCombatEvidence()
+items = {Item(14, secret, true, secret)}
+Evidence("unknown", nil, "unknown")
+Cast("Seal of Command")
+now = 400
+Evidence("active", "Seal of Command", "estimated")
 BuffIconCooldownViewer, C_CooldownViewer, items = nil, nil, {}
 addon.ResetCombatEvidence()
 -- A fresh seal cast counts as settling for 1.5s.

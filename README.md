@@ -172,10 +172,10 @@ Dados restritos produzem orientação cinza para conferir as condições. A docu
 
 ### Selos pelo Cooldown Manager — 0.11.0
 
-Em combate o jogo esconde os selos do addon, mas o **Cooldown Manager** da Blizzard continua mostrando as auras do jogador. Se um selo estiver numa das barras de buffs do Cooldown Manager (ícones ou barras de buffs rastreados), o addon lê ali que ele está ativo e qual é, como evidência **observada**.
+Em combate o jogo esconde os selos do addon, mas o **Cooldown Manager** da Blizzard continua mostrando as auras do jogador. Se um selo estiver numa das barras de buffs do Cooldown Manager (ícones ou barras de buffs rastreados), o addon lê ali que há um selo ativo, como evidência **observada**. Qual selo vem do próprio item quando o jogo informa; se esse dado estiver protegido, vem do último cast de selo observado, como estimativa.
 
 1. Ative o Cooldown Manager nas opções do jogo.
-2. Abra as configurações do Cooldown Manager e coloque os selos que você usa entre os buffs rastreados.
+2. Abra as configurações do Cooldown Manager e coloque o item **Seals** entre os buffs rastreados. O Forever agrupa todos os selos aprendidos nesse único item.
 3. Use `/reload` ou saia de combate para o addon refazer o mapa.
 
 A leitura só confirma presença: um selo fora das barras não prova ausência. A ausência continua vindo da usabilidade de Judgement. O addon só lê os ícones da Blizzard, sem alterá-los, e não lê duração nem stacks. A contagem de ecos continua dependendo da leitura pública da aura.
