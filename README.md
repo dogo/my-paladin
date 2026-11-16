@@ -135,7 +135,7 @@ Use `/mp echoes` ou Settings para desligar a orientação no perfil ativo. **Hig
 
 ### Contexto da luta
 
-Use **Single/AoE** no topo do painel ou os comandos correspondentes. A escolha é manual e fica salva por perfil. **Combat context hints** em Settings controla uma dica independente abaixo do aviso de selo, inclusive com o painel fechado.
+O botão **Mode: Single** / **Mode: AoE** no topo do painel mostra o contexto atual; clique nele ou use os comandos correspondentes para alternar. A escolha é manual e fica salva por perfil. **Combat context hints** em Settings controla uma dica independente abaixo do aviso de selo, inclusive com o painel fechado.
 
 Na 0.9.0, a dica deixa de ser um lembrete permanente. Em combate, com alvo válido, procura uma habilidade aprendida com **usabilidade, alcance e cooldown públicos e válidos**. Em Single, considera Judgement → Hammer of Wrath elegível → Holy Strike → Exorcism elegível. Em AoE, Consecration entra após Judgement. A ordem acompanha o guia de Forever; as decisões de selo/ecos continuam separadas.
 
@@ -182,7 +182,7 @@ Veja [diagnóstico e roteiro de validação](docs/diagnostico.md). Os registros 
 
 ## Limitações
 
-- A orientação cobre a abertura e a manutenção de selos; a lista de cooldowns não representa uma fila completa de rotação. O addon não lança habilidades nem troca talentos, equipamento ou teclas.
+- O motor indica uma ação principal e, no máximo, uma alternativa pronta no estado atual; não prevê uma fila de rotação nem cobre defensivos e controle. A lista de cooldowns do painel é apenas acompanhamento. O addon não lança habilidades nem troca talentos, equipamento ou teclas.
 - Dados de combate podem ficar restritos. O aviso independente de selo fica oculto quando não é possível confirmar seu estado; a restrição continua no painel e nos logs. Na captura real da build 70938, a consulta de selos ficou bloqueada durante combate.
 - Mana protegida mantém a barra nativa sem porcentagem ou alerta calculado. APIs de cooldown indisponíveis mostram **Cooldown unavailable**.
 - Os testes locais usam APIs simuladas; o comportamento dos avisos e das restrições ainda precisa de validação no cliente real.
@@ -214,3 +214,7 @@ python -m unittest discover -s tests -p 'test_*.py'
 - [Pesquisa do guia de Forever](docs/guia-wowhead.md)
 - [Cobertura das fontes](docs/cobertura-guia.md)
 - [APIs e compatibilidade](docs/addon-api.md)
+- [Diagnóstico e roteiro de validação](docs/diagnostico.md)
+- [Assistência durante combate](docs/assistencia-combate.md)
+- [Análise do Sonah Forever](docs/analise-sonah.md)
+- [Referências de addons para Forever](docs/pesquisa-addons-forever.md)

@@ -88,6 +88,16 @@ end
 cds[1] = {startTime = 100, duration = 8, modRate = 2, isEnabled = true}
 local state, _, remaining = addon.GetSpellReadiness(learned.Judgement, "Judgement")
 assert(state == "cooldown" and remaining == 4)
+learned["Seal of Righteousness"] = {spellID = 4}
+addon.GetSealAction = function()
+    return learned["Seal of Righteousness"], "Seal of Righteousness", "Estimated seal expired; refresh it", "estimated", true
+end
+usable, noMana = true, false
+cds[4] = {isEnabled = true, isActive = true, startTime = secret, duration = secret, modRate = secret}
+Action("Seal of Righteousness", "estimated", "refresh it") -- GCD must not flip seal upkeep to a grey check
+cds[4] = nil
+Action("Seal of Righteousness", "estimated", "refresh it")
+addon.GetSealAction = nil
 C_Spell.GetSpellCooldown = function() error(secret) end
 Action("Judgement", "check", "C_Spell.GetSpellCooldown")
 C_Spell.GetSpellCooldown = nil

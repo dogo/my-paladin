@@ -376,8 +376,10 @@ function addon.GetCombatAction(exclude)
         local info, name, reason, confidence, selfCast = addon.GetSealAction()
         if info and info.spellID ~= exclude then
             local state, detail = addon.GetSpellReadiness(info, name, false, selfCast)
-            if state == "ready" then
-                return info, name, reason, confidence == "estimated", confidence == "estimated" and "estimated" or "ready"
+            -- Seals have no cooldown of their own: an active one is the GCD, so keep the upkeep hint instead of a grey check.
+            if state == "ready" or state == "cooldown" then
+                local estimated = confidence == "estimated"
+                return info, name, reason, estimated, estimated and "estimated" or (state == "ready" and "ready" or "wait")
             end
             blocked = {info, name, detail, true, "check"}
         end

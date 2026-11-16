@@ -1,4 +1,4 @@
-# Compatibilidade do futuro addon com WoW: Forever
+# Compatibilidade do addon com WoW: Forever
 
 Pesquisa em 14/11/2026. Este documento registra evidência técnica e pendências; não declara o addon compatível antes de testar no cliente do jogador.
 

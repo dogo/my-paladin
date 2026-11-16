@@ -68,6 +68,8 @@ function methods:RegisterEvent(event) self.events[event] = true end
 function methods:UnregisterEvent(event) self.events[event] = nil end
 function methods:RegisterUnitEvent(event) self.events[event] = true end
 function methods:SetText(value) self.text = value end
+function methods:SetNormalFontObject(value) self.font = value end
+function methods:SetHighlightFontObject(value) self.highlightFont = value end
 function methods:SetTexture(value) self.texture = value end
 function methods:Disable() self.disabled = true end
 function methods:Enable() self.disabled = false end
@@ -686,7 +688,7 @@ SlashCmdList.MYPALADIN("aoe")
 settingsPanel:Show()
 SettingsProfile("Dungeon")
 assert(addon.GetSettings().combatMode == "single")
-FindText("Single").scripts.OnClick()
+FindText("Mode: Single").scripts.OnClick()
 assert(addon.GetSettings().combatMode == "aoe" and FindText("Combat: Area (AoE)"))
 FindText("Combat: Area (AoE)").scripts.OnClick()
 assert(addon.GetSettings().combatMode == "single")

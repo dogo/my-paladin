@@ -13,7 +13,7 @@ Não são gravados GUIDs, nomes de jogadores, chat, valores brutos de auras, vid
 /reload
 ```
 
-`/mp trace on` e `off` controlam a gravação por personagem. Reiniciar a gravação não apaga o buffer. Estados repetidos são descartados; mudanças de perfil, modo e combate são registradas novamente. Eventos de cast não fazem o addon avançar etapas: só o estado observado dos buffs/debuffs decide os avisos.
+`/mp trace on` e `off` controlam a gravação por personagem. Reiniciar a gravação não apaga o buffer. Estados repetidos são descartados; mudanças de perfil, modo e combate são registradas novamente. Desde a 0.10.0, casts próprios alimentam estimativas de selo e da abertura Crusader, registradas como `estimate/*`; uma leitura pública dos buffs/debuffs prevalece sobre a estimativa. Casts não comprovam acerto, dano nem consumo de ecos.
 
 Depois do `/reload` ou da saída normal:
 
