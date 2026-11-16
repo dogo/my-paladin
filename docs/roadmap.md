@@ -33,7 +33,7 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.11.0 | Presença do selo em combate pelos ícones de buff do Cooldown Manager (`cooldownID` mapeado por `C_CooldownViewer`, `auraInstanceID` presente), só como evidência positiva; requer o Cooldown Manager ligado com os selos rastreados; validação real pendente |
 | 0.11.1 | O Forever agrupa os selos num único item **Seals** do Cooldown Manager (visto no cliente): presença pelo item, nome pelo `auraSpellID` público ou pelo último cast observado |
 | 0.11.3 | Item **Seals** apagado vira ausência observada quando cobre todos os selos aprendidos; pedido de selo fixo em `Now` durante o GCD. Na sessão anterior, com o Seals rastreado, o item mostrou o selo com nome quando aplicado fora de combate, `active_unnamed` após troca em combate e apagou no mesmo segundo em que Judgement indicou a queda |
-| 0.11.4 | Layout dos avisos: `Move alerts`/`Lock alerts` e `Reset alert position` em Settings e `/mp move`, com modelo da indicação de combate fora de combate; fundo escuro também no aviso de selo |
+| 0.11.4 | Layout dos avisos: `Move alerts` (fecha o Settings, que fica arrastável)/`Lock alerts` e `Reset alert position` em Settings e `/mp move`, com modelo da indicação de combate fora de combate; fundo escuro também no aviso de selo |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.

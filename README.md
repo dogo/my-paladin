@@ -97,7 +97,7 @@ Quando detecta ausência de selo, o addon mostra **Seal missing** com o ícone e
 
 A recomendação considera os selos aprendidos, Holy Shock e a arma equipada. Fora da abertura e da orientação de ecos, qualquer selo ativo oculta o aviso.
 
-Para posicionar os avisos, use **Move alerts** em Settings ou `/mp move`: fora de combate aparecem o aviso de selo e um modelo da indicação de combate, que acompanha o aviso de selo. Arraste e clique em **Lock alerts**. **Reset alert position** volta à posição padrão. Durante combate, os avisos deixam passar os cliques. A opção **Highlight missing buffs** controla esse aviso por perfil.
+Para posicionar os avisos, use **Move alerts** em Settings ou `/mp move`: fora de combate aparecem o aviso de selo e um modelo da indicação de combate, que acompanha o aviso de selo. O Settings fecha para não cobrir os avisos; arraste e use `/mp move` ou reabra o Settings e clique em **Lock alerts**. A janela de Settings também pode ser arrastada. **Reset alert position** volta à posição padrão. Durante combate, os avisos deixam passar os cliques. A opção **Highlight missing buffs** controla esse aviso por perfil.
 
 ### Abertura com Crusader
 

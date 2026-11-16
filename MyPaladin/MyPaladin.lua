@@ -423,9 +423,11 @@ local function ToggleMove()
     end
     moving = not moving
     moveButton:SetText(moving and "Lock alerts" or "Move alerts")
+    -- Settings sits in the middle of the screen, on top of the alerts.
+    if moving then settingsPanel:Hide() end
     RefreshProfile()
     UpdateCombatHint()
-    Say(moving and "Drag the seal alert; the combat hint moves with it." or "Alert position locked.")
+    Say(moving and "Drag the seal alert; the combat hint moves with it. /mp move to lock." or "Alert position locked.")
 end
 
 local function ResetAlertPosition()
@@ -453,6 +455,13 @@ local function CreateSettings()
     settingsPanel:SetPoint("CENTER")
     settingsPanel:SetClampedToScreen(true)
     settingsPanel:EnableMouse(true)
+    settingsPanel:SetMovable(true)
+    settingsPanel:RegisterForDrag("LeftButton")
+    settingsPanel:SetScript("OnDragStart", settingsPanel.StartMoving)
+    settingsPanel:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self:SetUserPlaced(true)
+    end)
     settingsPanel:SetFrameStrata("DIALOG")
     settingsPanel:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
     settingsPanel:SetBackdropColor(0.06, 0.06, 0.07, 0.98)

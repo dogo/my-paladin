@@ -832,8 +832,10 @@ SlashCmdList.MYPALADIN("move")
 assert(not moveHint:IsShown(), "Locking hides the placeholder hint out of combat")
 local moveButton
 for _, frame in ipairs(frames) do if frame.text == "Move alerts" then moveButton = frame end end
+moveButton.parent:Show()
 moveButton.scripts.OnClick()
 assert(moveHint:IsShown() and moveButton.text == "Lock alerts", "Settings button toggles the same layout mode")
+assert(not moveButton.parent:IsShown(), "Settings closes so it does not cover the alerts")
 moveButton.scripts.OnClick()
 assert(not moveHint:IsShown() and moveButton.text == "Move alerts" and FindText("Reset alert position"))
 print("OK: per-profile settings, independent seal/opener/echo/context hints, assignments and safe restrictions/reload")
