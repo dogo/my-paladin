@@ -82,12 +82,19 @@ local function OnlyMember(members)
     return only
 end
 
--- Positive evidence only: a seal missing from the bars may simply not be tracked there.
--- Returns presence and, when the item tells it, which seal.
--- The third return explains a miss for diagnostics: no_map, viewer_hidden, item_absent or item_inactive.
+-- Absence counts only when an unlit item covers every learned seal; a seal off the bars proves nothing.
+local function CoversLearned(members)
+    for name in pairs(sealNames) do
+        if learnedNames[name] and not members[name] then return false end
+    end
+    return true
+end
+
+-- Returns "active" (with the seal when the item tells it) or "missing"; otherwise nil and the reason:
+-- no_map, viewer_hidden, item_absent or item_inactive. Released items have no cooldownID (Blizzard reset).
 function ViewerSeal()
     if not next(viewerSeals) then return nil, nil, "no_map" end
-    local reason = "viewer_hidden"
+    local reason, unlit = "viewer_hidden", false
     for _, viewerName in ipairs(AURA_VIEWERS) do
         local viewer = _G[viewerName]
         if viewer and viewer.IsShown and viewer.GetChildren and viewer:IsShown() then
@@ -95,23 +102,26 @@ function ViewerSeal()
             for _, item in ipairs({ viewer:GetChildren() }) do
                 local cooldownID = rawget(item, "cooldownID")
                 local members = Public(cooldownID) and viewerSeals[cooldownID]
-                if members then reason = "item_inactive" end
-                if members and item:IsShown() then
-                    local aura = rawget(item, "auraInstanceID")
-                    -- A secret ID is only tested for existence, never compared or read.
-                    if not Public(aura) or aura ~= nil then
-                        local name = OnlyMember(members)
-                        local auraSpell = rawget(item, "auraSpellID")
-                        if not name and Public(auraSpell) and type(auraSpell) == "number" and C_Spell and C_Spell.GetSpellName then
-                            local ok, spellName = pcall(C_Spell.GetSpellName, auraSpell)
-                            if ok and Public(spellName) and members[spellName] then name = spellName end
-                        end
-                        return true, name
+                local aura = members and rawget(item, "auraInstanceID")
+                -- A secret ID is only tested for existence, never compared or read.
+                local lit = members and (not Public(aura) or aura ~= nil)
+                if members and not lit then
+                    reason = "item_inactive"
+                    if CoversLearned(members) then unlit = true end
+                end
+                if lit and item:IsShown() then
+                    local name = OnlyMember(members)
+                    local auraSpell = rawget(item, "auraSpellID")
+                    if not name and Public(auraSpell) and type(auraSpell) == "number" and C_Spell and C_Spell.GetSpellName then
+                        local ok, spellName = pcall(C_Spell.GetSpellName, auraSpell)
+                        if ok and Public(spellName) and members[spellName] then name = spellName end
                     end
+                    return "active", name
                 end
             end
         end
     end
+    if unlit then return "missing", nil, "item_inactive" end
     return nil, nil, reason
 end
 
@@ -199,12 +209,16 @@ function addon.GetSealEvidence()
         seal = nil
         return "missing", nil, "observed"
     end
-    local shown, shownName, miss = ViewerSeal()
+    local viewed, shownName, miss = ViewerSeal()
     if addon.TraceState then
-        addon.TraceState("seal_viewer", shown and (shownName and "active" or "active_unnamed") or miss,
+        addon.TraceState("seal_viewer", viewed == "active" and (shownName and "active" or "active_unnamed") or viewed or miss,
             { detail = shownName or "Cooldown Manager" })
     end
-    if shown then
+    if viewed == "missing" and not addon.SealJustCast() then
+        seal = nil
+        return "missing", nil, "observed"
+    end
+    if viewed == "active" then
         if shownName then
             if not (seal and seal.name == shownName) then seal = { name = shownName } end
             return "active", shownName, "observed"

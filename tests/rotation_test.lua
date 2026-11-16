@@ -121,6 +121,12 @@ cds[4] = {isEnabled = true, isActive = true, startTime = secret, duration = secr
 Action("Seal of Righteousness", "estimated", "refresh it") -- GCD must not flip seal upkeep to a grey check
 cds[4] = nil
 Action("Seal of Righteousness", "estimated", "refresh it")
+addon.GetSealAction = function()
+    return learned["Seal of Righteousness"], "Seal of Righteousness", "No active seal detected", "observed", true
+end
+cds[4] = {isEnabled = true, isActive = true, isOnGCD = true, startTime = secret, duration = secret, modRate = secret}
+Action("Seal of Righteousness", "ready", "No active seal") -- steady Now through the GCD, no Now/Wait flicker
+cds[4] = nil
 addon.GetSealAction = nil
 -- Right after a seal cast the server has not applied it yet: Judgement waits instead of a grey check.
 local usableBeforeSeal = C_Spell.IsSpellUsable

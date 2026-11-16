@@ -124,6 +124,22 @@ Evidence("unknown", nil, "unknown")
 Cast("Seal of Command")
 now = 400
 Evidence("active", "Seal of Command", "estimated")
+-- An unlit grouped item proves absence only when it covers every learned seal.
+items = {Item(14, nil, true)}
+Evidence("missing", nil, "estimated") -- not covering every learned seal: falls back to the expired estimate
+local learnAll = addon.GetLearnedSpell
+addon.GetLearnedSpell = function(name)
+    if name:find("^Seal of") and name ~= "Seal of Command" and name ~= "Seal of Righteousness" then return nil end
+    return learnAll(name)
+end
+addon.RebuildCombatSpells()
+items = {Item(14, nil, false)}
+Evidence("missing", nil, "observed")
+Cast("Seal of Righteousness")
+now = 401
+Evidence("active", "Seal of Righteousness", "estimated") -- the item lags a fresh cast
+addon.GetLearnedSpell = learnAll
+addon.RebuildCombatSpells()
 BuffIconCooldownViewer, C_CooldownViewer, items = nil, nil, {}
 addon.ResetCombatEvidence()
 -- A fresh seal cast counts as settling for 1.5s.

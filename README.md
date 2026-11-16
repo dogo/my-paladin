@@ -178,7 +178,7 @@ Em combate o jogo esconde os selos do addon, mas o **Cooldown Manager** da Blizz
 2. Abra as configurações do Cooldown Manager e coloque o item **Seals** entre os buffs rastreados. O Forever agrupa todos os selos aprendidos nesse único item.
 3. Use `/reload` ou saia de combate para o addon refazer o mapa.
 
-A leitura só confirma presença: um selo fora das barras não prova ausência. A ausência continua vindo da usabilidade de Judgement. O addon só lê os ícones da Blizzard, sem alterá-los, e não lê duração nem stacks. A contagem de ecos continua dependendo da leitura pública da aura.
+O item **Seals** apagado prova ausência quando agrupa todos os selos aprendidos; um selo fora das barras não prova nada, e então a ausência vem da usabilidade de Judgement. Durante o GCD, o pedido de selo fica fixo em **Now**, sem alternar com **Wait**. O addon só lê os ícones da Blizzard, sem alterá-los, e não lê duração nem stacks. A contagem de ecos continua dependendo da leitura pública da aura.
 
 ### Diagnóstico da sessão
 
