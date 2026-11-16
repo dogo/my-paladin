@@ -17,9 +17,18 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.6 | Bênção/aura desejadas por perfil, avisos de preparação fora de combate e mais cooldowns de suporte |
 | 0.7 | Single/AoE por perfil, dica independente de combate e condições públicas de mana, tipo e vida do alvo |
 | 0.8 | Nomes MyPaladin corrigidos, migração com backups, diagnóstico limitado e leitor de sessões |
+| 0.8.1 | Motivos de acesso às APIs por consulta e comparação fora/dentro de combate no relatório; instalação e primeira captura conferidas |
+| 0.8.2 | Correção do aviso de selo: ocultar HUD quando o estado estiver restrito/indisponível; instalação e conferência visual pendentes |
+| 0.9.0 | Decisão dinâmica Now/Wait/Check por cooldown, usabilidade e alcance públicos; inclui correção da 0.8.2; instalação e validação real pendentes |
+| 0.9.1 | Corrige leitura de prontidão usando isEnabled/isActive públicos quando os tempos estão protegidos; instalação e validação real pendentes |
+| 0.10.0 | Motor unificado com memória de casts/selos, confiança estimada, pausa durante casts, segunda opção pronta, tecla e destaque em barras Blizzard/macros simples; instalação e validação real pendentes |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.
+
+A instalação da 0.8 foi conferida em 15/11/2026: os seis arquivos instalados correspondem ao projeto, a pasta antiga saiu de `AddOns` e as configurações de um personagem foram preservadas pela migração. Isso confirma a instalação em disco; o carregamento e os comportamentos da nova versão ainda precisam da sessão no jogo.
+
+Em 15/11/2026, a primeira captura da 0.8.1 na build 70938 confirmou carregamento, gravação por SavedVariables e chegada de traces ao `Logs/General.log`: 665 registros na sessão concluída, com 12 entradas em combate e nenhum erro próprio registrado. Nesta captura, consultas de selos/bênçãos/auras foram bloqueadas pela política de segredo durante combate; fora dele houve detecção de buffs. Mana apareceu protegida também fora de combate. Tipo de criatura e flags do alvo ficaram públicos nas consultas observadas. A sessão usou Leveling/Single com abertura Crusader desativada; não valida os demais perfis, AoE, abertura ou ecos. Uma leitura seguinte encontrou 188 registros da sessão atual somente no log nativo, ainda ausentes dos SavedVariables, confirmando coleta durante a sessão sem outro reload. O atraso exato não foi medido.
 
 ## Validação pendente
 
@@ -29,9 +38,22 @@ Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Comma
 - Com Unsealed Wrath aprendido, conferir o buff e a contagem de Echo of Command no cliente real.
 - Repetir o ciclo após acerto, erro/esquiva, expiração, dispel, troca de alvo e fim de combate.
 - Confirmar quais dados permanecem públicos durante combate; estados restritos devem limpar orientações anteriores e mostrar uma indicação de conferência.
-- Instalar a 0.8 com o jogo fechado, migrando o nome antigo e os perfis.
+- Conferir no jogo as demais preferências e perfis após a migração; Leveling/Single foi registrado na primeira captura.
 - Conferir Single/AoE e o cooldown da dica com o painel fechado; não exigir leitura de vida secreta.
-- Capturar uma sessão, conferir gravação após reload e determinar se `C_Log` chega ao disco ao vivo.
+- Medir a latência de `C_Log`; chegada a `General.log` durante a sessão, antes de outro reload, já confirmada.
+- Conferir que o HUD de selo desaparece durante restrições, inclusive se antes mostrava ausência. Detecção exata de ausência de selo em combate não está validada, pois a política bloqueou a consulta.
+
+## Prioridade após o feedback de uso
+
+O usuário relatou que o addon não ofereceu ajuda útil na luta. O painel de cooldowns e a dica genérica de Judgement/Holy Strike não contam como assistência de rotação validada. A prioridade passa a ser obter orientação acionável durante combate e testar sua utilidade no nível/build do jogador antes de ampliar o painel ou declarar 1.0. A investigação está em [assistência de combate](assistencia-combate.md).
+
+A verificação de `C_AssistedCombat.IsAvailable()` no jogador retornou `false, WRONG_WORLD_STATE_EXPRESSION`. Essa integração não pode ser a base da assistência no estado testado. A próxima verificação é o acesso a cooldown/usabilidade durante combate, antes de implementar outra recomendação.
+
+O teste de Holy Strike durante uma luta retornou `MP cooldown: false usable: false`, confirmando que a tabela/duração consultada e o primeiro retorno de usabilidade não eram secretos naquele momento. A 0.9.0 usa essas APIs com validação em cada consulta e verifica também alcance, campos do cooldown e custo. Os testes locais cobrem a mudança Judgement → Holy Strike → espera → pronto, falta de mana, alcance, contexto AoE e dados protegidos. A utilidade e o acesso aos demais campos no cliente real ainda dependem da captura da nova versão.
+
+A captura seguinte confirmou a 0.9.0 carregada: 182 registros, 21 casts, nenhuma indicação `ready`/`wait` e nenhum erro próprio registrado. As recomendações ficaram em `check` porque outro campo do cooldown era protegido; o teste inicial de tabela/duração não cobria todos os campos exigidos. A 0.9.1 reproduz esse caso nos testes e usa os flags públicos de habilitação/atividade antes de consultar tempos opcionais. A alternância real para `Now` ainda precisa ser conferida no cliente após a atualização.
+
+Em 16/11/2026, a [análise do Sonah 1.2.3 instalado](analise-sonah.md) confirmou um motor próprio com histórico de casts e estimativas de auras/selos, além das leituras públicas e da apresentação por tecla/brilho. Isso identifica uma direção para ampliar a assistência: separar estado observado, estimado e desconhecido. A inspeção foi estática e não modificou o Sonah nem implementou esse modelo no My Paladin.
 
 O [roteiro de diagnóstico](diagnostico.md) reúne os passos de validação e os limites do relatório.
 
@@ -40,6 +62,16 @@ O [roteiro de diagnóstico](diagnostico.md) reúne os passos de validação e os
 - Resolver os problemas encontrados na validação do cliente.
 - Consolidar compatibilidade, instalação e atualização do addon.
 - Publicar um pacote de versão com instruções de uso e limitações confirmadas.
+
+## Depois do motor — pontos úteis priorizados
+
+- Validar primeiro: indicação de dano alternando, renovação estimada do selo, ausência de alertas concorrentes, tecla do macro e destaque correto durante uma luta real.
+- Separar defensivos e controle de dano, com alertas específicos baseados em sinais disponíveis; não inventar limiar de vida quando a informação estiver oculta.
+- Orientação de talentos e treinamento conforme o personagem e o guia de Forever, antes de novas telas de estatísticas.
+- Ampliar mapeamento para barras substitutas e macros complexos após testar as barras padrão.
+- Avaliar aproximações de ecos somente com opção explícita e calibração; as contagens atuais continuam dependendo de leitura pública.
+
+GearScore, sincronização de grupo, todas as classes e grandes painéis de desempenho não entram nessa entrega. A 0.10.0 usa código próprio e não altera nem depende do Sonah instalado.
 
 ## Acompanhamento das entregas
 

@@ -70,7 +70,7 @@ function addon.StartDiagnostics(saved)
     session = tostring(time()) .. "-" .. log.sessions
     sequence, last = 0, {}
     local version, build = GetBuildInfo()
-    addon.Trace("session", "start", { detail = "addon=0.8.0 client=" .. version .. " build=" .. build
+    addon.Trace("session", "start", { detail = "addon=0.10.0 client=" .. version .. " build=" .. build
         .. " C_Log=" .. tostring(C_Log and type(C_Log.LogMessage) == "function" or false) })
     -- Observe the native error sink without replacing the client's error handler.
     if hooksecurefunc and C_Log and C_Log.LogErrorMessage and not addon.errorHooked then

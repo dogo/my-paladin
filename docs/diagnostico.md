@@ -51,7 +51,39 @@ Enquanto estivermos trabalhando na conversa, o relatório pode ser lido para con
 
 O relatório apresenta **observado**, **não observado** ou **restrito**. Não declara uma funcionalidade aprovada por ausência de erros. A checagem automática cobre a consistência das contagens registradas no ciclo de ecos; prontidão, dano e geometria dos avisos exigem validação no jogo.
 
+## Restrições observadas — 0.8.1
+
+A seção **Acesso às APIs observado** separa evidências de fora e de dentro de combate. Registra as consultas usadas pelo addon para auras, campos dos ecos, flags do alvo, vida, tipo de criatura, mana, equipamento e conhecimento do talento. O cooldown é identificado como exibição nativa, sem inspeção de prontidão. Cada verificação tem uma chave própria para que consultas repetidas não alternem artificialmente os registros.
+
+| Estado | Significado |
+| --- | --- |
+| `restricted` | A política de auras impediu a consulta, ou o retorno/campo era secreto |
+| `api_missing` | Uma API necessária não estava disponível |
+| `call_failed` | A chamada protegida por `pcall` falhou; isso não confirma por si só uma proibição do jogo |
+| `invalid` | O retorno acessível não tinha o tipo/intervalo esperado |
+| `unavailable` | Não foi possível extrair a informação, como velocidade no tooltip |
+| `not_checked` | O addon adiou/dispensou a consulta, por exemplo equipamento em combate ou requisito de habilidade não aprendida |
+| `public` / `present` / `missing` | Consulta pública válida; presença/ausência de aura é uma condição normal |
+| `native_only` | O objeto de cooldown é usado pelo widget nativo, sem decidir se a habilidade está pronta |
+| `call_accepted` | `C_Log.LogMessage` aceitou uma tentativa; ainda não confirma arquivo ou flush |
+
+Os detalhes são descrições estáticas da API/campo, por exemplo `UnitHealth returned a secret` ou `Echo of Command applications is secret`. Não incluem o valor protegido nem o erro bruto de uma chamada que falhou. O relatório preserva o último motivo de limitação mesmo se uma leitura pública ocorrer depois.
+
+Na 0.8.2, `seal_hud/hidden` com detalhe `Seal status restricted` ou `Seal status unavailable` significa que o aviso foi ocultado por falta de evidência. O estado do buff e os motivos de restrição continuam registrados; não é uma confirmação de selo ativo. Isso evita que o antigo aviso permanente de conferência pareça uma instrução para reaplicar o selo.
+
+Na 0.10.0, `estimate/seal_cast` registra o início de uma estimativa de selo após um cast próprio público. `estimate/crusader_judged` registra progresso inferido no alvo atual, sem confirmar aplicação do debuff; `estimate/reset` descarta esse estado na morte do jogador. `combat_hint/estimated` identifica instrução de manutenção inferida, `casting` identifica um cast em andamento. A manutenção é integrada no ícone principal; o HUD antigo fica oculto em combate quando o motor está ligado. A segunda opção usa somente candidatas prontas no estado atual, sem previsão de próximos casts. Os registros nunca tratam expiração estimada como contagem real de ecos.
+
+`bindings/mapped` registra quantas habilidades foram associadas a botões padrão; `unavailable` indica APIs ausentes e `deferred` indica reconstrução adiada por combate. `action_binding/available|unbound` identifica se a ação principal tem uma tecla encontrada. Nenhum corpo de macro ou nome de macro é exportado para os registros.
+
+As verificações só acompanham caminhos executados pelo addon. Sem a habilidade aprendida ou sem uma condição que exija a consulta, não há teste artificial de permissão. Uma coleta não permite concluir que uma API estará sempre pública ou restrita. O adiamento voluntário do equipamento não comprova que o jogo proíba a consulta.
+
+`ADDON_ACTION_BLOCKED` e `ADDON_ACTION_FORBIDDEN` incluem o nome público da função quando o evento atribui a ação ao MyPaladin. A [documentação gerada de ações restritas do ramo Forever](https://github.com/Gethe/wow-ui-source/blob/forever/Interface/AddOns/Blizzard_APIDocumentationGenerated/RestrictedActionsDocumentation.lua) define os dois argumentos, nome atribuído e função. Nenhuma ação proibida é provocada para testar esse registro.
+
 ## Erros e limites
+
+Primeira captura real em 15/11/2026, versão 0.8.1/build 70938: 665 registros da sessão concluída com 12 entradas em combate, incluindo marca do jogador, casts públicos e decisões de avisos. Nenhum evento de erro próprio foi registrado. Selos, bênçãos e auras consultados foram restritos durante combate; fora dele houve detecção de buffs. Mana ficou protegida inclusive fora de combate, exceto um retorno inválido no carregamento inicial. Flags do alvo e tipo de criatura ficaram públicos nas consultas observadas. Vida do alvo não foi consultada porque Hammer of Wrath não estava aprendido. Não houve validação do ciclo de ecos nem da abertura Crusader. Os registros também chegaram a `Logs/General.log`; a latência e o flush sem reload ainda não foram medidos.
+
+Na mesma análise, uma leitura posterior encontrou 188 registros da sessão atual em `General.log`, com atividade posterior à inicialização, enquanto os SavedVariables ainda continham apenas a sessão anterior. Isso confirma o transporte durante a sessão antes de outro reload nessa instalação. O atraso exato e a regularidade de flush ainda precisam ser medidos; o monitor deve continuar tratando SavedVariables como alternativa.
 
 O gravador observa `C_Log.LogErrorMessage` por hook seguro, sem substituir o tratador global de erros, e guarda somente a primeira linha pública de erros que mencionem MyPaladin nos primeiros 300 caracteres. Também registra bloqueios/ações proibidas atribuídos ao addon. Nem todo erro chega a esse caminho: falhas anteriores ao carregamento de Diagnostics, de sintaxe/manifesto ou com stack não identificado exigem o erro nativo ou `DeveloperLog.log`.
 

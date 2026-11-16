@@ -15,7 +15,10 @@ Desenvolvido para **Forever 1.60.1**, Interface **16001**, com o cliente em ingl
 - Perfis por personagem, com preferências de layout, alertas e preparação.
 - Bênção e aura desejadas por perfil, com lembretes de preparação fora de combate.
 - Contexto Single/AoE por perfil e dicas condicionais com o painel fechado.
+- Escolha dinâmica de habilidade por cooldown, usabilidade e alcance públicos: Now, Wait ou Check.
+- Motor com memória dos próprios casts, manutenção estimada de selo, tecla e destaque na barra nativa.
 - Diagnóstico local das decisões dos avisos, casts públicos e erros do addon.
+- Motivos de restrição das APIs, separados entre fora e dentro de combate no relatório.
 - Painel compacto ou expandido, com posição ajustável.
 
 ## Instalação
@@ -33,6 +36,8 @@ _forever_/Interface/AddOns/MyPaladin/
 ├── Profiles.lua
 ├── PlayerState.lua
 ├── Diagnostics.lua
+├── CombatState.lua
+├── ActionHints.lua
 └── GuideInfo.lua
 ```
 
@@ -132,7 +137,32 @@ Use `/mp echoes` ou Settings para desligar a orientação no perfil ativo. **Hig
 
 Use **Single/AoE** no topo do painel ou os comandos correspondentes. A escolha é manual e fica salva por perfil. **Combat context hints** em Settings controla uma dica independente abaixo do aviso de selo, inclusive com o painel fechado.
 
-Em combate e com alvo válido, a dica prioriza Hammer of Wrath abaixo de 20% **somente se a vida for pública**; depois Consecration no modo AoE com orientação de mana; depois Exorcism contra Undead/Demon quando o tipo for público; por fim, lembra o núcleo Judgement/Holy Strike. A animação de cooldown vem do widget nativo; a indicação não garante que a habilidade esteja pronta, em alcance ou com mana suficiente. Não conta inimigos nem monta uma fila completa de rotação.
+Na 0.9.0, a dica deixa de ser um lembrete permanente. Em combate, com alvo válido, procura uma habilidade aprendida com **usabilidade, alcance e cooldown públicos e válidos**. Em Single, considera Judgement → Hammer of Wrath elegível → Holy Strike → Exorcism elegível. Em AoE, Consecration entra após Judgement. A ordem acompanha o guia de Forever; as decisões de selo/ecos continuam separadas.
+
+**Now** em verde indica uma habilidade que passou por essas verificações. Se Judgement entrar em cooldown, a indicação pode mudar para Holy Strike. Sem uma opção pronta, **Wait** mostra o cooldown calculável mais próximo; **Check** informa impedimentos como falta de mana, alcance ou dados indisponíveis. A indicação se atualiza por eventos e a cada 0,1 segundo enquanto estiver visível, inclusive com o painel fechado. Os registros diferenciam `ready`, `wait` e `check`.
+
+Na 0.9.1, os indicadores públicos `isEnabled`/`isActive` permitem verificar o cooldown mesmo quando seus tempos estão protegidos. Habilidade habilitada e sem cooldown ativo pode receber **Now** após as demais verificações. Cooldown ativo com tempos protegidos recebe **Wait**, com exibição nativa, sem contagem calculada. Se o indicador de atividade não estiver acessível, somente tempos públicos e válidos podem confirmar prontidão. A captura real da 0.9.0 havia ficado em **Check** por exigir esses tempos mesmo quando o indicador público poderia bastar.
+
+Consecration exige AoE selecionado manualmente e um alvo em alcance de Holy Strike como verificação conservadora de proximidade; não conta inimigos. Mana baixa pública evita esse gasto. Com mana bruta protegida, a possibilidade de pagar o custo vem de `IsSpellUsable`; não há garantia de sustentar vários casts. Hammer of Wrath ainda exige vida pública abaixo de 20%; Exorcism exige Undead/Demon público. Dados protegidos são descartados antes de qualquer cálculo. Uma opção inferior verificada pode ser indicada mesmo se a leitura de outra falhar; isso não garante prioridade ótima nessa situação.
+
+A animação de cooldown continua nativa. **Now** descreve o estado verificado naquele momento; não garante sucesso do cast, acerto, linha de visão ou ausência de mudanças entre a indicação e a ação. O addon não lança habilidades.
+
+### Motor com memória — 0.10.0
+
+Durante combate, o motor reúne manutenção de selo/abertura e dano em uma indicação principal, evitando dois avisos concorrentes. A opção **Combat context hints** controla o motor; com ela desligada, o HUD independente mantém seu comportamento anterior. **Highlight missing buffs** continua controlando manutenção de selo.
+
+- **Now**, em verde: ação com condições verificadas nas consultas públicas usadas.
+- **Estimate**, em âmbar: ação de manutenção baseada em um estado estimado do selo/debuff.
+- **Casting**: aguarde o cast atual; a indicação não pede dano no meio de uma cura.
+- **Wait / Check**: cooldown ativo ou impedimento explicado na linha abaixo do ícone.
+
+Ao observar um cast próprio de selo, o motor mantém uma estimativa de 30 segundos e substitui o selo anterior. Uma leitura pública posterior corrige esse estado. Quando a leitura fica oculta, o vencimento estimado pode sugerir reaplicação; isso não prova que o selo durou até ali. Dispel ou remoção antecipada podem invalidar a estimativa. Um reload em combate sem leitura pública começa como desconhecido até haver nova evidência, sem inventar selo ativo ou ausente. Há uma tolerância de 0,25s para a atualização da aura após o evento de cast.
+
+Com a abertura Crusader ativada, o histórico pode orientar julgar o selo e trocar para dano quando o debuff estiver oculto. Esse progresso é **estimado**, vale só para o alvo atual e é descartado ao trocar de alvo. Não confirma que o debuff acertou. O motor não simula contagens de ecos nem usa a heurística de 6/8 segundos do Sonah.
+
+O ícone principal mostra a tecla e destaca o botão nas barras padrão da Blizzard. O seu macro com `/cast Judgement` e `/cast Holy Strike` pode mapear ambas as habilidades para a mesma tecla. O leitor entende casts simples e a habilidade exibida pelo macro; não resolve sequências ou ramificações condicionais. A atualização do mapa ocorre fora de combate, sem alterar teclas, macros ou atributos de lançamento. Mudanças de barra em combate limpam o mapa até a próxima reconstrução. Barras substitutas como ElvUI/Bartender ainda não estão integradas.
+
+**Also ready** mostra uma segunda ação que também passou nas verificações atuais. É uma alternativa no estado atual, não uma previsão de como o combate ficará depois do próximo cast. Cooldown ativo/GCD continua bloqueando **Now**. Os testes locais verificam estimativa, substituição, expiração, reconciliação, casts, macro e destaque; a ajuda real e o tamanho/posição do HUD ainda precisam de validação em jogo.
 
 Dados restritos produzem orientação cinza para conferir as condições. A documentação de Forever marca `UnitHealth` como secreto; portanto não há garantia de indicação de Hammer of Wrath no cliente real.
 
@@ -151,7 +181,7 @@ Veja [diagnóstico e roteiro de validação](docs/diagnostico.md). Os registros 
 ## Limitações
 
 - A orientação cobre a abertura e a manutenção de selos; a lista de cooldowns não representa uma fila completa de rotação. O addon não lança habilidades nem troca talentos, equipamento ou teclas.
-- Dados de combate podem ficar restritos. **Check seal / Status restricted** e **Status unavailable** não confirmam ausência de selo.
+- Dados de combate podem ficar restritos. O aviso independente de selo fica oculto quando não é possível confirmar seu estado; a restrição continua no painel e nos logs. Na captura real da build 70938, a consulta de selos ficou bloqueada durante combate.
 - Mana protegida mantém a barra nativa sem porcentagem ou alerta calculado. APIs de cooldown indisponíveis mostram **Cooldown unavailable**.
 - Os testes locais usam APIs simuladas; o comportamento dos avisos e das restrições ainda precisa de validação no cliente real.
 
@@ -168,6 +198,10 @@ luajit tests/echoes_test.lua
 luajit tests/preparation_test.lua
 luajit tests/combat_hints_test.lua
 luajit tests/diagnostics_test.lua
+luajit tests/api_diagnostics_test.lua
+luajit tests/rotation_test.lua
+luajit tests/combat_state_test.lua
+luajit tests/action_hints_test.lua
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 

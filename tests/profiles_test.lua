@@ -4,6 +4,8 @@ local function LoadProfiles()
     assert(loadfile("MyPaladin/Profiles.lua"))("MyPaladin", addon)
     assert(loadfile("MyPaladin/Diagnostics.lua"))("MyPaladin", addon)
     assert(loadfile("MyPaladin/PlayerState.lua"))("MyPaladin", addon)
+    assert(loadfile("MyPaladin/CombatState.lua"))("MyPaladin", addon)
+    assert(loadfile("MyPaladin/ActionHints.lua"))("MyPaladin", addon)
     return addon
 end
 
@@ -167,6 +169,8 @@ Emit("ADDON_LOADED", "AnotherAddon")
 assert(not SlashCmdList.MYPALADIN)
 Emit("ADDON_LOADED", "MyPaladin")
 assert(MyPaladinDB.activeProfile == "dungeon")
+-- Legacy standalone HUD remains available with the unified combat helper disabled.
+for _, settings in pairs(MyPaladinDB.profileSettings) do settings.combatHints = false end
 local panel
 for _, frame in ipairs(frames) do
     if frame.name == "MyPaladinPanel" then panel = frame end
@@ -238,8 +242,7 @@ assert(FindText("Blessing: Restricted"))
 assert(not FindText("Seal: Missing"))
 weaponType = "INVTYPE_WEAPON"
 Emit("PLAYER_EQUIPMENT_CHANGED", 16)
-assert(sealAlert.icon.texture == known["Seal of Command"], "Keep the base seal recommendation during combat")
-assert(sealAlert:IsShown() and FindText("Check seal") and FindText("Status restricted"))
+assert(not sealAlert:IsShown(), "Unknown seal status must not show a seal reminder during combat")
 restrictedBuffs = false
 combat = false
 activeBuffs = {}
@@ -282,17 +285,23 @@ for _ = 1, 3 do
     Emit("UNIT_AURA", secret)
     assert(not sealAlert:IsShown(), "Every reapplication must clear the reminder during combat")
 end
+activeBuffs = {}
+Emit("UNIT_AURA", secret)
+assert(sealAlert:IsShown(), "Public missing-seal detection must still show a reminder")
+restrictedBuffs = true
+Emit("UNIT_AURA", secret)
+assert(not sealAlert:IsShown(), "A previously missing seal must not leave a stale instruction after access is restricted")
+restrictedBuffs = false
 activeBuffs = { ["Seal of the Crusader"] = true }
 Emit("UNIT_AURA", secret)
 assert(not sealAlert:IsShown(), "Another active seal must not trigger a replacement instruction")
 restrictedBuffs = true
 Emit("UNIT_AURA", secret)
-assert(sealAlert:IsShown() and FindText("Check seal") and FindText("Status restricted"))
-assert(not FindText("Seal missing"), "Restricted data must not leave a stale missing-seal assertion")
+assert(not sealAlert:IsShown(), "An active but restricted Crusader must not produce a misleading seal reminder")
 local auraAPI = C_UnitAuras
 C_UnitAuras = nil
 Emit("UNIT_AURA", secret)
-assert(sealAlert:IsShown() and FindText("Status unavailable"))
+assert(not sealAlert:IsShown(), "Unavailable aura data must not produce a seal reminder")
 C_UnitAuras = auraAPI
 combat, restrictedBuffs = false, false
 Emit("PLAYER_REGEN_ENABLED")
@@ -612,42 +621,62 @@ assert(combatHint and combatHint.parent == UIParent and not combatHint.mouseEnab
 SlashCmdList.MYPALADIN("")
 assert(not panel:IsShown())
 activeBuffs, targetExists, combat = { ["Seal of Righteousness"] = true }, true, true
+addon.GetSettings().combatHints = true
 C_Spell.GetSpellCooldownDuration = function() return secret end
+local cooldowns, usable, ranges = {}, {}, {}
+C_Spell.IsSpellUsable = function(id) return usable[id] ~= false, false end
+C_Spell.IsSpellInRange = function(id) return ranges[id] ~= false end
+C_Spell.GetSpellCooldown = function(id)
+    return { startTime = 42, duration = cooldowns[id] or 0, isEnabled = true, modRate = 1 }
+end
 Emit("PLAYER_REGEN_DISABLED")
-assert(combatHint:IsShown() and FindText("Single: Judgement") and not panel:IsShown())
+assert(combatHint:IsShown() and FindText("Now: Judgement") and not panel:IsShown())
 local hintCooldown
 for _, frame in ipairs(frames) do
     if frame.parent == combatHint and frame.kind == "Cooldown" then hintCooldown = frame end
 end
 assert(hintCooldown.duration == secret, "Forward the hint cooldown duration without inspecting it")
-SlashCmdList.MYPALADIN("aoe")
-assert(addon.GetSettings().combatMode == "aoe" and FindText("AoE: Consecration"))
+cooldowns[known.Judgement] = 8
+Emit("SPELL_UPDATE_COOLDOWN")
+assert(FindText("Now: Holy Strike"), "The hint must change when Judgement goes on cooldown")
+cooldowns[known["Holy Strike"]] = 10
+Emit("SPELL_UPDATE_COOLDOWN")
+assert(FindText("Wait: Judgement") and FindText("Ready in 8.0s"))
+local originalTime = GetTime
+GetTime = function() return 50 end
+combatHint.scripts.OnUpdate(combatHint, 0.1)
+assert(FindText("Now: Judgement"), "Time expiry must update the action without another cooldown event")
+GetTime = originalTime
+cooldowns[known["Holy Strike"]] = 0
+addon.GetSettings().manaThreshold = 20
 UnitPower = function() return 100 end
 UnitPowerMax = function() return 100 end
-Emit("UNIT_POWER_UPDATE", secret)
-assert(FindText("Area damage when mana permits"))
+SlashCmdList.MYPALADIN("aoe")
+assert(addon.GetSettings().combatMode == "aoe" and FindText("Now: Consecration"))
 UnitPower = function() return 10 end
+UnitPowerMax = function() return 100 end
 Emit("UNIT_POWER_UPDATE", secret)
-assert(FindText("Low mana | Limit Consecration"))
+assert(FindText("Now: Holy Strike"), "Avoid optional area damage below the public mana threshold")
 UnitPower = function() return secret end
 Emit("UNIT_POWER_UPDATE", secret)
-assert(FindText("Check mana before area damage") and FindText("AoE: Consecration").textColor[1] == 0.7)
+assert(FindText("Now: Consecration"), "Public native usability can check the cast cost when raw mana is secret")
 SlashCmdList.MYPALADIN("single")
+cooldowns[known["Holy Strike"]] = 10
 creatureType = "Undead"
 Emit("PLAYER_TARGET_CHANGED")
-assert(FindText("Single: Exorcism"))
+assert(FindText("Now: Exorcism"))
 creatureType = secret
 Emit("PLAYER_TARGET_CHANGED")
-assert(FindText("Single: Judgement") and not FindText("Single: Exorcism"))
+assert(FindText("Wait: Judgement"), "Never recommend Exorcism without an eligible creature type")
 creatureType, hammerLearned, targetHealth = "Humanoid", true, 19
 Emit("SPELLS_CHANGED")
-assert(FindText("Single: Hammer of Wrath"))
+assert(FindText("Now: Hammer of Wrath"))
 targetHealth = 20
 Emit("UNIT_HEALTH", secret)
-assert(FindText("Single: Judgement"))
+assert(FindText("Wait: Judgement"))
 targetHealth = secret
 Emit("UNIT_HEALTH", secret)
-assert(not FindText("Single: Hammer of Wrath") and FindText("Single: Judgement").textColor[1] == 0.7)
+assert(not FindText("Now: Hammer of Wrath") and FindText("Wait: Judgement"))
 targetDead = true
 Emit("UNIT_HEALTH", secret)
 assert(not combatHint:IsShown() and hintCooldown.duration == nil)
@@ -670,9 +699,37 @@ contextReload.Initialize(MyPaladinDB)
 assert(contextReload.GetSettings().combatMode == "aoe" and not contextReload.GetSettings().combatHints)
 SetCheck("Combat context hints", true)
 assert(combatHint:IsShown())
+-- Replay a public seal cast followed by hidden auras and timer expiry through the actual event handler.
+addon.GetSettings().combatMode = "single"
+restrictedBuffs, activeBuffs = true, {}
+cooldowns[known.Judgement], cooldowns[known["Holy Strike"]] = 0, 0
+local clockBeforeEstimate = GetTime
+local estimateTime = 100
+GetTime = function() return estimateTime end
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known["Seal of Righteousness"])
+assert(FindText("Now: Judgement") and not sealAlert:IsShown())
+estimateTime = 131
+combatHint.scripts.OnUpdate(combatHint, 0.1)
+assert(FindText("Estimate: Seal of Righteousness"), "Hidden seal expiry must produce an explicitly estimated maintenance action")
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known["Seal of Righteousness"])
+assert(FindText("Now: Judgement"), "Recasting the seal must release the damage rotation")
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_START", "player", secret, known["Holy Light"])
+assert(FindText("Casting: Holy Light"), "The combat engine must not tell the player to interrupt their own cast")
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_STOP", "player", secret, known["Holy Light"])
+assert(FindText("Now: Judgement"))
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_START", "player", secret, secret)
+assert(not combatHint:IsShown(), "A secret cast ID must not be used to invent a casting icon")
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_STOP", "player", secret, secret)
+GetTime = clockBeforeEstimate
+restrictedBuffs, activeBuffs = false, {["Seal of Righteousness"] = true}
+Emit("PLAYER_DEAD")
+Emit("UNIT_AURA", secret)
+assert(not combatHint:IsShown() and not sealAlert:IsShown(), "Death must keep both HUDs hidden across following aura updates")
+Emit("PLAYER_ALIVE")
+assert(combatHint:IsShown())
 C_Spell.GetSpellCooldownDuration = nil
 Emit("SPELL_UPDATE_COOLDOWN")
-assert(FindText("Check mana before area damage | Cooldown unavailable"))
+assert(FindText("Use now | Usability, range and cooldown checked | Cooldown unavailable"))
 settingsPanel:Hide()
 combat, targetExists, hammerLearned, targetHealth = false, false, false, 100
 activeBuffs = {}
@@ -688,8 +745,7 @@ local combatSealAlert
 for index = firstCombatFrame, #frames do
     if frames[index].name == "MyPaladinSealAlert" then combatSealAlert = frames[index] end
 end
-assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"],
-    "Reloading in combat must show a learned fallback without inspecting equipment")
+assert(not combatSealAlert:IsShown(), "Reloading in combat with restricted auras must not guess a missing seal")
 combat, restrictedBuffs = false, false
 combatEvents.scripts.OnEvent(combatEvents, "PLAYER_REGEN_ENABLED")
 assert(combatSealAlert:IsShown() and combatSealAlert.icon.texture == known["Seal of Righteousness"])
@@ -700,8 +756,9 @@ assert(MyPaladinLog.serial == traceSerial + 1 and secretCast:find('"feature":"ca
     and not secretCast:find('"spell"', 1, true), "Secret cast IDs must not be exported")
 combatEvents.scripts.OnEvent(combatEvents, "ADDON_ACTION_BLOCKED", "OtherAddon")
 assert(MyPaladinLog.serial == traceSerial + 1)
-combatEvents.scripts.OnEvent(combatEvents, "ADDON_ACTION_BLOCKED", "MyPaladin")
-assert(MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]:find('"feature":"error"', 1, true))
+combatEvents.scripts.OnEvent(combatEvents, "ADDON_ACTION_BLOCKED", "MyPaladin", "ProtectedFunction")
+local blocked = MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]
+assert(blocked:find('"feature":"error"', 1, true) and blocked:find('"detail":"ProtectedFunction"', 1, true))
 SlashCmdList.MYPALADIN("trace mark validation")
 assert(MyPaladinLog.entries[(MyPaladinLog.serial - 1) % 1000 + 1]:find('"detail":"validation"', 1, true))
 print("OK: per-profile settings, independent seal/opener/echo/context hints, assignments and safe restrictions/reload")

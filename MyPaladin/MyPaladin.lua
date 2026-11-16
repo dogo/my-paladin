@@ -8,6 +8,7 @@ local settingsPanel, settingsHeading, thresholdLabel, thresholdMinus, thresholdP
 local settingsChecks, spellChecks, preparationChecks, settingsButtons, assignmentButtons = {}, {}, {}, {}, {}
 local RefreshSettings
 local contextButton, contextSettingsButton, combatHint, hintTitle, hintHelp, hintCooldown
+local hintKey, hintAlternative
 
 local function Say(message)
     print("|cffffca65My Paladin:|r " .. message)
@@ -33,9 +34,19 @@ local function UpdateSealAlert(status, activeSeal)
     local combat = InCombatLockdown()
     sealAlert:EnableMouse(not combat)
     if combat then sealAlert:StopMovingOrSizing() end
+    if addon.combatPlayerDead or (combat and addon.GetSettings().combatHints) then
+        sealAlert:Hide()
+        addon.TraceState("seal_hud", "hidden", { detail = "Maintenance merged into combat engine" })
+        return
+    end
     if not addon.GetSettings().buffWarnings or not recommendedSealInfo then
         sealAlert:Hide()
         addon.TraceState("seal_hud", "hidden")
+        return
+    end
+    if status == "restricted" or status == "unavailable" then
+        sealAlert:Hide()
+        addon.TraceState("seal_hud", "hidden", { detail = "Seal status " .. status .. "; no missing-seal instruction" })
         return
     end
     local step, info = addon.GetCrusaderStep(status, activeSeal)
@@ -118,10 +129,6 @@ local function UpdateSealAlert(status, activeSeal)
         sealTitle:SetText("Seal missing")
         sealTitle:SetTextColor(1, 0.5, 0.2)
         sealHelp:SetText("Use your action bar")
-    elseif combat then
-        sealTitle:SetText("Check seal")
-        sealTitle:SetTextColor(0.7, 0.7, 0.7)
-        sealHelp:SetText(status == "restricted" and "Status restricted" or "Status unavailable")
     else
         sealAlert:Hide()
         addon.TraceState("seal_hud", "hidden")
@@ -132,17 +139,32 @@ local function UpdateSealAlert(status, activeSeal)
 end
 
 local function UpdateCombatHint()
-    local info, name, help, uncertain = addon.GetCombatHint()
+    local info, name, help, uncertain, state = addon.GetCombatAction()
     if not info then
         hintCooldown:Clear()
         combatHint:Hide()
+        addon.ClearActionHint()
         addon.TraceState("combat_hint", "hidden")
         return
     end
     combatHint.icon:SetTexture(info.iconID)
-    hintTitle:SetText((addon.GetSettings().combatMode == "aoe" and "AoE: " or "Single: ") .. name)
-    if uncertain then hintTitle:SetTextColor(0.7, 0.7, 0.7) else hintTitle:SetTextColor(1, 0.82, 0) end
+    local prefix = state == "ready" and "Now: " or state == "estimated" and "Estimate: "
+        or state == "wait" and "Wait: " or state == "casting" and "Casting: " or "Check: "
+    hintTitle:SetText(prefix .. name)
+    if state == "ready" then hintTitle:SetTextColor(0.4, 1, 0.4)
+    elseif state == "estimated" then hintTitle:SetTextColor(1, 0.7, 0.3)
+    else hintTitle:SetTextColor(0.7, 0.7, 0.7) end
+    local key = addon.ShowActionHint(info.spellID, state)
+    hintKey:SetText(key or "")
+    addon.TraceState("action_binding", key and "available" or "unbound", {spell = info.spellID})
+    local alternative, alternativeName, _, _, alternativeState
+    if state == "ready" then
+        alternative, alternativeName, _, _, alternativeState = addon.GetCombatAction(info.spellID)
+    end
+    hintAlternative:SetText(alternative and alternativeState == "ready" and "Also ready: " .. alternativeName or "")
     local duration = C_Spell.GetSpellCooldownDuration and C_Spell.GetSpellCooldownDuration(info.spellID)
+    addon.TraceState("api_cooldown", C_Spell.GetSpellCooldownDuration and hintCooldown.SetCooldownFromDurationObject
+        and "native_only" or "api_missing", { detail = "C_Spell.GetSpellCooldownDuration -> native widget; readiness not inspected" })
     if duration and hintCooldown.SetCooldownFromDurationObject then
         hintCooldown:SetCooldownFromDurationObject(duration)
     else
@@ -151,7 +173,8 @@ local function UpdateCombatHint()
     end
     hintHelp:SetText(help)
     combatHint:Show()
-    addon.TraceState("combat_hint", uncertain and "uncertain" or "shown", { spell = info.spellID, detail = help })
+    addon.TraceState("combat_hint", state, { spell = info.spellID,
+        detail = state == "wait" and "Wait for cooldown" or help })
 end
 
 local function UpdateBuffs()
@@ -181,7 +204,10 @@ end
 local function UpdateSealRecommendation()
     if not InCombatLockdown() or not recommendedSealInfo then
         recommendedSealInfo, recommendedSeal = addon.GetRecommendedSeal()
+    else
+        addon.TraceState("api_weapon", "not_checked", { detail = "Equipment check deferred until after combat by addon policy" })
     end
+    addon.primarySeal = recommendedSeal
 end
 
 local function UpdateCooldowns()
@@ -529,20 +555,27 @@ local function CreatePanel()
     sealHelp = Text(sealAlert, "GameFontHighlightSmall", 60, -42, 240)
     combatHint = CreateFrame("Frame", "MyPaladinCombatHint", UIParent)
     combatHint:Hide()
-    combatHint:SetSize(300, 64)
+    combatHint:SetSize(340, 104)
     combatHint:SetPoint("TOPLEFT", sealAlert, "BOTTOMLEFT", 0, -12)
     combatHint:SetClampedToScreen(true)
     combatHint:SetFrameStrata("HIGH")
     combatHint:EnableMouse(false)
+    local elapsedHint = 0
+    combatHint:SetScript("OnUpdate", function(_, elapsed)
+        elapsedHint = elapsedHint + elapsed
+        if elapsedHint >= 0.1 then elapsedHint = 0; UpdateCombatHint() end
+    end)
     combatHint.icon = combatHint:CreateTexture(nil, "ARTWORK")
-    combatHint.icon:SetSize(40, 40)
+    combatHint.icon:SetSize(64, 64)
     combatHint.icon:SetPoint("TOPLEFT")
     hintCooldown = CreateFrame("Cooldown", nil, combatHint, "CooldownFrameTemplate")
     hintCooldown:SetAllPoints(combatHint.icon)
-    hintTitle = Text(combatHint, "GameFontHighlight", 52, 0, 248)
-    hintHelp = Text(combatHint, "GameFontHighlightSmall", 52, -22, 248)
+    hintTitle = Text(combatHint, "GameFontNormalLarge", 76, 0, 264)
+    hintHelp = Text(combatHint, "GameFontHighlightSmall", 76, -24, 264)
     hintHelp:SetHeight(36)
     hintHelp:SetJustifyV("TOP")
+    hintKey = Text(combatHint, "GameFontNormalLarge", 0, -68, 72)
+    hintAlternative = Text(combatHint, "GameFontHighlightSmall", 76, -68, 264)
     mana = CreateFrame("StatusBar", nil, panel)
     mana:SetPoint("TOPLEFT", 16, -152)
     mana:SetSize(388, 18)
@@ -593,7 +626,7 @@ end
 
 local events = CreateFrame("Frame")
 events:RegisterEvent("ADDON_LOADED")
-events:SetScript("OnEvent", function(self, event, unit, _, spellID)
+events:SetScript("OnEvent", function(self, event, unit, action, spellID)
     if event == "ADDON_LOADED" then
         if unit ~= addonName then return end
         self:UnregisterEvent("ADDON_LOADED")
@@ -611,6 +644,8 @@ events:SetScript("OnEvent", function(self, event, unit, _, spellID)
         MyPaladinDB = addon.Initialize(MyPaladinDB)
         MyPaladinLog = addon.StartDiagnostics(MyPaladinLog)
         CreatePanel()
+        addon.RebuildCombatSpells()
+        addon.RebuildActionHints()
         SLASH_MYPALADIN1 = "/mp"
         SlashCmdList.MYPALADIN = function(message)
             message = message:match("^%s*(.-)%s*$"):lower()
@@ -647,6 +682,11 @@ events:SetScript("OnEvent", function(self, event, unit, _, spellID)
         self:RegisterEvent("GET_ITEM_INFO_RECEIVED")
         self:RegisterEvent("PLAYER_LEVEL_UP")
         self:RegisterEvent("SPELL_UPDATE_COOLDOWN")
+        self:RegisterEvent("SPELL_UPDATE_USABLE")
+        self:RegisterEvent("UPDATE_BINDINGS")
+        self:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
+        self:RegisterEvent("UPDATE_MACROS")
+        self:RegisterEvent("ACTIONBAR_PAGE_CHANGED")
         self:RegisterEvent("PLAYER_REGEN_DISABLED")
         self:RegisterEvent("PLAYER_REGEN_ENABLED")
         self:RegisterEvent("PLAYER_TARGET_CHANGED")
@@ -658,27 +698,56 @@ events:SetScript("OnEvent", function(self, event, unit, _, spellID)
         self:RegisterUnitEvent("UNIT_POWER_UPDATE", "player")
         self:RegisterUnitEvent("UNIT_MAXPOWER", "player")
         self:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+        for _, name in ipairs({"START", "STOP", "FAILED", "INTERRUPTED", "CHANNEL_START", "CHANNEL_STOP"}) do
+            self:RegisterUnitEvent("UNIT_SPELLCAST_" .. name, "player")
+        end
         self:RegisterEvent("ADDON_ACTION_BLOCKED")
         self:RegisterEvent("ADDON_ACTION_FORBIDDEN")
         self:RegisterEvent("PLAYER_LOGOUT")
+        self:RegisterEvent("PLAYER_DEAD")
+        self:RegisterEvent("PLAYER_ALIVE")
         RefreshProfile()
         Say("Active profile: " .. addon.GetProfile().name .. ". Use /mp to open or close.")
     elseif event == "PLAYER_LOGOUT" then
         addon.Trace("session", "logout")
+    elseif event == "PLAYER_DEAD" then
+        addon.combatPlayerDead = true
+        addon.ResetCombatEvidence()
+        addon.ClearActionHint()
+        combatHint:Hide()
+        sealAlert:Hide()
+        addon.Trace("estimate", "reset", { detail = "Player death; seal/opener evidence discarded" })
+    elseif event == "PLAYER_ALIVE" then
+        addon.combatPlayerDead = false
+        RefreshProfile()
     elseif event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
-        if not issecretvalue(unit) and unit == addonName then addon.Trace("error", event) end
+        if not issecretvalue(unit) and unit == addonName then addon.Trace("error", event, { detail = action }) end
     elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         addon.Trace("cast", "succeeded", { spell = spellID })
+        addon.RecordCombatCast(spellID)
+        UpdateCombatHint()
+    elseif event:match("^UNIT_SPELLCAST_") then
+        addon.SetCombatCast(spellID, event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START")
+        UpdateCombatHint()
+    elseif event == "UPDATE_BINDINGS" or event == "ACTIONBAR_SLOT_CHANGED" or event == "UPDATE_MACROS" or event == "ACTIONBAR_PAGE_CHANGED" then
+        addon.RebuildActionHints()
+        UpdateCombatHint()
     elseif event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" then
         if panel:IsShown() then UpdateMana() end
         UpdateCombatHint()
     elseif event == "UNIT_AURA" or event == "PLAYER_TARGET_CHANGED" or event == "UNIT_HEALTH"
         or event == "UNIT_MAXHEALTH" or event == "UNIT_FLAGS" or event == "UNIT_FACTION" then
+        if event == "PLAYER_TARGET_CHANGED" then addon.CombatTargetChanged() end
         UpdateBuffs()
-    elseif event == "SPELL_UPDATE_COOLDOWN" then
+    elseif event == "SPELL_UPDATE_COOLDOWN" or event == "SPELL_UPDATE_USABLE" then
         if panel:IsShown() then UpdateCooldowns() end
         UpdateCombatHint()
     else
+        if event == "PLAYER_ENTERING_WORLD" then addon.SetCombatCast(nil, false) end
+        if event == "PLAYER_ENTERING_WORLD" or event == "SPELLS_CHANGED" or event == "PLAYER_REGEN_ENABLED" then
+            addon.RebuildCombatSpells()
+            addon.RebuildActionHints()
+        end
         addon.TraceState("lifecycle", event)
         RefreshProfile()
     end
