@@ -39,8 +39,13 @@ function addon.Trace(feature, state, values, transition)
         .. ',"uptime":' .. Encode(math.floor(GetTime())) .. ',' .. signature .. '}'
     log.entries[(log.serial - 1) % LIMIT + 1] = record
     -- shortcut: C_Log delivery/flush is client-dependent; SavedVariables is the fallback.
-    if C_Log and C_Log.LogMessage then pcall(C_Log.LogMessage, record) end
+    local sinkAvailable = C_Log and type(C_Log.LogMessage) == "function"
+    local sinkOK = sinkAvailable and pcall(C_Log.LogMessage, record)
     writing = false
+    if feature ~= "api_log" then
+        addon.TraceState("api_log", not sinkAvailable and "api_missing" or (sinkOK and "call_accepted" or "call_failed"),
+            { detail = "C_Log.LogMessage; call result only, disk delivery unverified" })
+    end
 end
 
 function addon.TraceState(feature, state, values)

@@ -13,14 +13,14 @@ C_Log = { LogMessage = function(line) output[#output + 1] = line end, LogErrorMe
 function hooksecurefunc(_, _, callback) hook = callback end
 assert(loadfile("MyPaladin/Diagnostics.lua"))("MyPaladin", addon)
 local saved = addon.StartDiagnostics(nil)
-assert(saved.enabled and #output == 1)
+assert(saved.enabled and #output == 2)
 addon.TraceState("seal_hud", "echo_swap", { count = 2, spell = 100 })
 local before = saved.serial
 addon.TraceState("seal_hud", "echo_swap", { count = 2, spell = 100 })
 assert(saved.serial == before, "Repeated state must not spam the buffer")
 settings.combatMode = "aoe"
 addon.TraceState("seal_hud", "echo_swap", { count = 2, spell = 100 })
-assert(saved.serial == before + 1, "Context changes must be retained")
+assert(saved.serial == before + 2, "Context changes must retain both decision and log transport state")
 addon.Trace("test", "protected", { count = secret, spell = secret, detail = secret, guid = "private" })
 assert(not output[#output]:find('"spell"') and not output[#output]:find("private"))
 addon.Trace("marker", "user", { detail = 'quote" back\\ line\n\t' })
@@ -48,10 +48,15 @@ local oldSink = C_Log.LogMessage
 C_Log.LogMessage = function() error("Native logger unavailable") end
 serial = saved.serial
 addon.Trace("test", "sink_failure")
-assert(saved.serial == serial + 1, "Native sink failures must preserve SavedVariables recording")
+assert(saved.serial == serial + 2, "Native sink failures must retain the event and transport failure")
+assert(saved.entries[(saved.serial - 1) % 1000 + 1]:find('"state":"call_failed"', 1, true))
 C_Log.LogMessage = oldSink
 addon.Trace("test", "after_failure")
-assert(saved.serial == serial + 2, "Sink failures must not leave the recorder locked")
+assert(saved.serial == serial + 4, "Sink recovery must retain the event and transport recovery")
+assert(output[#output]:find('"state":"call_accepted"', 1, true))
 addon.StartDiagnostics({ schema = 1, serial = 0/0, sessions = math.huge, entries = { bad = true, [2000] = "bad" } })
-assert(saved.serial == serial + 2)
+assert(saved.serial == serial + 4)
+C_Log = nil
+local noSink = addon.StartDiagnostics(nil)
+assert(noSink.entries[2]:find('"state":"api_missing"', 1, true), "Missing native transport must be recorded locally")
 print("diagnostics tests passed")

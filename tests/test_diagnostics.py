@@ -28,6 +28,23 @@ def line(record):
 
 
 class DiagnosticsTests(unittest.TestCase):
+    def test_api_report_separates_combat_and_unknown_causes(self):
+        tail = monitor.Monitor("/unused")
+        examples = [
+            {**event(1), "feature": "api_target_health", "state": "public", "combat": False,
+             "detail": "UnitHealth accessible"},
+            {**event(2), "feature": "api_target_health", "state": "restricted", "combat": True,
+             "detail": "UnitHealth returned a secret"},
+            {**event(3), "feature": "api_target_type", "state": "call_failed", "combat": True,
+             "detail": "UnitCreatureType"},
+        ]
+        for record in examples:
+            tail.events[(record["session"], record["seq"])] = record
+        report, _ = tail.report()
+        self.assertIn("| api_target_health | public | restricted | UnitHealth returned a secret |", report)
+        self.assertIn("| api_target_type | não observado | call_failed |", report)
+        self.assertIn("causa não confirmada", report)
+
     def test_reads_native_and_lua_strings_without_executing_code(self):
         record = event()
         self.assertEqual(list(monitor.records("[timestamp] " + line(record))), [record])

@@ -108,9 +108,29 @@ class Monitor:
                  "O monitor lê só traces do addon; erros anteriores ao carregamento exigem o erro nativo do jogo.",
                  "Logs nativos começam nos últimos 2 MiB; arquivos sem mudança não são relidos.", ""]
         counts = Counter((e["feature"], e["state"]) for e in events)
-        for feature in ("session", "config", "seal_hud", "combat_hint", "mana", "cast", "error", "marker"):
+        for feature in ("session", "config", "seal_hud", "combat_hint", "estimate", "bindings", "action_binding", "mana", "cast", "error", "marker"):
             states = [f"{state} ({count})" for (name, state), count in sorted(counts.items()) if name == feature]
             lines.append(f"- {feature}: " + (", ".join(states) if states else "não observado"))
+        lines += ["", "## Acesso às APIs observado", "",
+                  "`restricted`: dado protegido; `api_missing`: API ausente; `call_failed`: chamada falhou (causa não confirmada).",
+                  "`invalid`: retorno inesperado; `not_checked`: consulta dispensada/adiada pelo addon.",
+                  "`public`, `present`, `missing`: leitura pública; `native_only`: apenas exibição no widget, sem ler prontidão.",
+                  "`call_accepted`: C_Log aceitou a chamada; não comprova entrega em disco.",
+                  "Estados abaixo são evidências históricas nesta captura, não permissões garantidas para outras situações.", "",
+                  "| Verificação | Fora de combate | Em combate | Motivo da última limitação (ou leitura) |",
+                  "| --- | --- | --- | --- |"]
+        probes = sorted({e["feature"] for e in events if e["feature"].startswith("api_")})
+        for feature in probes:
+            observations = [e for e in events if e["feature"] == feature]
+            cells = []
+            for combat in (False, True):
+                states = sorted({e["state"] for e in observations if e.get("combat") is combat})
+                cells.append(", ".join(states) or "não observado")
+            limits = [e for e in observations if e["state"] in {"restricted", "api_missing", "call_failed", "invalid", "unavailable"}]
+            detail = str((limits or observations)[-1].get("detail", "")).replace("|", "\\|").replace("\n", " ")
+            lines.append(f"| {feature} | {cells[0]} | {cells[1]} | {detail} |")
+        if not probes:
+            lines += ["| Sem diagnóstico detalhado nesta captura | não observado | não observado | Requer 0.8.1 ou posterior |"]
         issues = []
         for event in events:
             state, count = event["state"], event.get("count")
