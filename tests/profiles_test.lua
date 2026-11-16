@@ -69,6 +69,14 @@ function methods:UnregisterEvent(event) self.events[event] = nil end
 function methods:RegisterUnitEvent(event) self.events[event] = true end
 function methods:SetText(value) self.text = value end
 function methods:SetNormalFontObject(value) self.font = value end
+function methods:SetBlendMode(mode) self.blend = mode end
+function methods:CreateAnimationGroup()
+    return {SetLooping = function() end, Play = function(group) group.playing = true end,
+        Stop = function(group) group.playing = false end, IsPlaying = function(group) return group.playing end,
+        CreateAnimation = function()
+            return {SetFromAlpha = function() end, SetToAlpha = function() end, SetDuration = function() end}
+        end}
+end
 function methods:SetHighlightFontObject(value) self.highlightFont = value end
 function methods:SetTexture(value) self.texture = value end
 function methods:Disable() self.disabled = true end

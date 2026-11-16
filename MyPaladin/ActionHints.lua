@@ -14,9 +14,40 @@ local function Public(value) return issecretvalue and not issecretvalue(value) e
 local function Trace(state, count)
     if addon.TraceState then addon.TraceState("bindings", state, {count = count, detail = "Blizzard bars and simple cast macros"}) end
 end
+local PROC_LOOP = "UI-HUD-ActionBar-Proc-Loop-Flipbook"
+
+-- Blizzard's proc art on our own frame; ActionButtonSpellAlertManager would write into secure buttons.
+local function ProcGlow(button)
+    if not CreateFrame or not C_Texture or not C_Texture.GetAtlasInfo then return end
+    local ok, info = pcall(C_Texture.GetAtlasInfo, PROC_LOOP)
+    if not ok or not Public(info) or type(info) ~= "table" then return end
+    local glow = CreateFrame("Frame", nil, button)
+    local okWidth, width = pcall(button.GetWidth, button)
+    local size = (okWidth and Public(width) and type(width) == "number" and width > 0 and width or 36) * 1.4
+    glow:SetSize(size, size)
+    glow:SetPoint("CENTER", button, "CENTER")
+    local okLevel, level = pcall(button.GetFrameLevel, button)
+    if okLevel and Public(level) and type(level) == "number" then glow:SetFrameLevel(level + 5) end
+    local texture = glow:CreateTexture(nil, "OVERLAY")
+    texture:SetAllPoints()
+    texture:SetAtlas(PROC_LOOP)
+    local anim = texture:CreateAnimationGroup()
+    anim:SetLooping("REPEAT")
+    local okFlip, flip = pcall(anim.CreateAnimation, anim, "FlipBook")
+    glow:Hide()
+    if not okFlip or not flip then return end
+    -- Same sheet layout as Blizzard's ActionButtonSpellAlertTemplate loop.
+    flip:SetFlipBookRows(6)
+    flip:SetFlipBookColumns(5)
+    flip:SetFlipBookFrames(30)
+    flip:SetDuration(1)
+    glow.texture, glow.anim = texture, anim
+    return glow
+end
+
 local function Border(button)
     if borders[button] then return borders[button] end
-    local edges = {}
+    local edges = {glow = ProcGlow(button)}
     for _, side in ipairs({"TOP", "BOTTOM", "LEFT", "RIGHT"}) do
         local edge = button:CreateTexture(nil, "OVERLAY")
         if side == "TOP" or side == "BOTTOM" then
@@ -29,6 +60,14 @@ local function Border(button)
             edge:SetWidth(3)
         end
         edge:SetColorTexture(0.4, 1, 0.4, 1)
+        edge:SetBlendMode("ADD")
+        -- Own pulse on our textures; Blizzard's spell alert would write into secure action buttons.
+        edge.pulse = edge:CreateAnimationGroup()
+        edge.pulse:SetLooping("BOUNCE")
+        local fade = edge.pulse:CreateAnimation("Alpha")
+        fade:SetFromAlpha(1)
+        fade:SetToAlpha(0.25)
+        fade:SetDuration(0.45)
         edge:Hide()
         edges[#edges + 1] = edge
     end
@@ -36,8 +75,33 @@ local function Border(button)
     return edges
 end
 
-function addon.ClearActionHint()
-    for _, edges in pairs(borders) do for _, edge in ipairs(edges) do edge:Hide() end end
+local function SetEdges(edges, state)
+    local glow = edges.glow
+    if glow then
+        if state then
+            if state == "estimated" then glow.texture:SetVertexColor(1, 0.55, 0.2) else glow.texture:SetVertexColor(1, 1, 1) end
+            -- The HUD refreshes every 0.1s; restarting would freeze the animation.
+            if not glow.anim:IsPlaying() then glow:Show(); glow.anim:Play() end
+        else
+            glow.anim:Stop()
+            glow:Hide()
+        end
+        return
+    end
+    for _, edge in ipairs(edges) do
+        if state then
+            edge:SetColorTexture(state == "estimated" and 1 or 0.4, state == "estimated" and 0.7 or 1, 0.3, 1)
+            -- The HUD refreshes every 0.1s; restarting would freeze the pulse.
+            if not edge.pulse:IsPlaying() then edge:Show(); edge.pulse:Play() end
+        else
+            edge.pulse:Stop()
+            edge:Hide()
+        end
+    end
+end
+
+function addon.ClearActionHint(keep)
+    for _, edges in pairs(borders) do if edges ~= keep then SetEdges(edges) end end
 end
 
 local function Unchanged(action)
@@ -145,14 +209,10 @@ function addon.RebuildActionHints()
 end
 
 function addon.ShowActionHint(spellID, state)
-    addon.ClearActionHint()
     local action = actions[spellID]
+    local lit = action and (state == "ready" or state == "estimated") and action.button:IsShown() and action.edges
+    addon.ClearActionHint(lit)
     if not action then return nil end
-    if (state == "ready" or state == "estimated") and action.button:IsShown() then
-        for _, edge in ipairs(action.edges) do
-            edge:SetColorTexture(state == "estimated" and 1 or 0.4, state == "estimated" and 0.7 or 1, 0.3, 1)
-            edge:Show()
-        end
-    end
+    if lit then SetEdges(lit, state) end
     return action.key, action.label
 end

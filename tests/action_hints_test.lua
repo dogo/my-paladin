@@ -16,6 +16,16 @@ function button:CreateTexture()
     function edge:SetColorTexture(...) self.color = {...} end
     function edge:Show() self.shown = true end
     function edge:Hide() self.shown = false end
+    function edge:SetBlendMode(mode) self.blend = mode end
+    function edge:CreateAnimationGroup()
+        local group = {plays = 0}
+        function group:SetLooping(mode) self.looping = mode end
+        function group:CreateAnimation() return {SetFromAlpha = function() end, SetToAlpha = function() end, SetDuration = function() end} end
+        function group:Play() self.playing, self.plays = true, self.plays + 1 end
+        function group:Stop() self.playing = false end
+        function group:IsPlaying() return self.playing end
+        return group
+    end
     edges[#edges + 1] = edge
     return edge
 end
@@ -29,11 +39,13 @@ addon.RebuildActionHints()
 assert(#edges == 4, "One macro button needs only one border, even with two spells")
 combat = true
 assert(addon.ShowActionHint(1, "ready") == "2")
-for _, edge in ipairs(edges) do assert(edge.shown and edge.color[1] == 0.4) end
+for _, edge in ipairs(edges) do assert(edge.shown and edge.color[1] == 0.4 and edge.pulse.playing) end
+addon.ShowActionHint(1, "ready")
+for _, edge in ipairs(edges) do assert(edge.pulse.plays == 1, "HUD refresh must not restart the pulse") end
 assert(addon.ShowActionHint(2, "estimated") == "2")
 for _, edge in ipairs(edges) do assert(edge.shown and edge.color[1] == 1) end
 addon.ShowActionHint(2, "wait")
-for _, edge in ipairs(edges) do assert(not edge.shown) end
+for _, edge in ipairs(edges) do assert(not edge.shown and not edge.pulse.playing) end
 addon.RebuildActionHints()
 assert(addon.ShowActionHint(1, "ready") == "2", "An unchanged macro must keep its binding after combat action-bar notifications")
 local key, label = addon.ShowActionHint(1, "ready")
@@ -68,4 +80,56 @@ combat = false
 GetActionInfo = function() return "spell", secret end
 addon.RebuildActionHints()
 assert(addon.ShowActionHint(2, "ready") == nil)
+-- With Blizzard's proc atlas available, the button gets the animated proc loop instead of plain edges.
+local function Animation()
+    local group = {plays = 0}
+    function group:SetLooping(mode) self.looping = mode end
+    function group:CreateAnimation(kind)
+        assert(kind == "FlipBook")
+        local flip = {}
+        for _, name in ipairs({"SetFlipBookRows", "SetFlipBookColumns", "SetFlipBookFrames", "SetDuration"}) do
+            flip[name] = function(anim, value) anim[name] = value end
+        end
+        self.flip = flip
+        return flip
+    end
+    function group:Play() self.playing, self.plays = true, self.plays + 1 end
+    function group:Stop() self.playing = false end
+    function group:IsPlaying() return self.playing end
+    return group
+end
+local glow
+C_Texture = {GetAtlasInfo = function(atlas) return atlas == "UI-HUD-ActionBar-Proc-Loop-Flipbook" and {} or nil end}
+function CreateFrame(kind, _, parent)
+    assert(kind == "Frame" and parent == button and not combat, "Glow frames are built out of combat on the button")
+    glow = {}
+    function glow:SetSize(width) self.size = width end
+    function glow:SetPoint() end
+    function glow:SetFrameLevel(level) self.level = level end
+    function glow:Show() self.shown = true end
+    function glow:Hide() self.shown = false end
+    function glow:CreateTexture()
+        local texture = {}
+        function texture:SetAllPoints() end
+        function texture:SetAtlas(atlas) self.atlas = atlas end
+        function texture:SetVertexColor(...) self.color = {...} end
+        function texture:CreateAnimationGroup() self.group = Animation(); return self.group end
+        self.tex = texture
+        return texture
+    end
+    return glow
+end
+function button:GetWidth() return 45 end
+function button:GetFrameLevel() return secret end
+GetActionInfo = function() return "spell", 2 end
+assert(loadfile("MyPaladin/ActionHints.lua"))("MyPaladin", addon)
+addon.RebuildActionHints()
+assert(addon.ShowActionHint(2, "ready") == "2")
+local group = glow.tex.group
+assert(glow.shown and group.playing and group.looping == "REPEAT" and math.abs(glow.size - 63) < 1e-9 and glow.level == nil)
+assert(group.flip.SetFlipBookFrames == 30 and glow.tex.color[2] == 1)
+addon.ShowActionHint(2, "estimated")
+assert(group.plays == 1 and glow.tex.color[2] == 0.55, "Refresh keeps the loop running and tints estimates")
+addon.ShowActionHint(2, "wait")
+assert(not glow.shown and not group.playing)
 print("OK: native action keybinds, simple multi-cast macro, non-casting glow and combat cache invalidation")
