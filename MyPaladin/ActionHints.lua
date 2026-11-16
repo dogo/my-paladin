@@ -40,9 +40,32 @@ function addon.ClearActionHint()
     for _, edges in pairs(borders) do for _, edge in ipairs(edges) do edge:Hide() end end
 end
 
+local function Unchanged(action)
+    local ok, kind, id = pcall(GetActionInfo, action.slot)
+    if not ok or not Public(kind) or kind ~= action.kind then return false end
+    local bound, key = pcall(GetBindingKey, action.command)
+    if not bound or not Public(key) or key ~= action.key then return false end
+    if kind == "macro" then
+        if not GetActionText or not GetMacroBody or type(action.macro) ~= "string" or not action.body then return false end
+        local named, name = pcall(GetActionText, action.slot)
+        if not named or not Public(name) or name ~= action.macro then return false end
+        local read, body = pcall(GetMacroBody, name)
+        return read and Public(body) and body == action.body
+    end
+    return kind == "spell" and Public(id) and id == action.sourceID
+end
+
 function addon.RebuildActionHints()
-    if InCombatLockdown() then addon.ClearActionHint(); actions = {}; Trace("deferred", 0); return end
     addon.ClearActionHint()
+    if InCombatLockdown() then
+        local count = 0
+        for id, action in pairs(actions) do
+            -- Macro icon updates also notify the action bar; retain only mappings we can revalidate.
+            if Unchanged(action) then count = count + 1 else actions[id] = nil end
+        end
+        Trace("validated", count)
+        return
+    end
     actions = {}
     if not GetActionInfo or not GetBindingKey or not issecretvalue then Trace("unavailable", 0); return end
     local names = {}
@@ -55,12 +78,17 @@ function addon.RebuildActionHints()
                 local ok, slot = pcall(function() return button.action or button:GetAttribute("action") end)
                 if ok and Public(slot) and type(slot) == "number" then
                     local read, kind, id, subtype = pcall(GetActionInfo, slot)
-                    local bindOK, key = pcall(GetBindingKey, bar[2] .. index)
+                    local command = bar[2] .. index
+                    local bindOK, key = pcall(GetBindingKey, command)
                     if not bindOK or not Public(key) or type(key) ~= "string" then key = nil end
+                    local macro, body, label
                     local function Store(spellID)
                         if Public(spellID) and type(spellID) == "number" and
-                            (not actions[spellID] or (not actions[spellID].key and key)) then
-                            actions[spellID] = { key = key, edges = Border(button), button = button }
+                            (not actions[spellID] or (not actions[spellID].key and key)
+                                or (label and key and not actions[spellID].label)) then
+                            actions[spellID] = { key = key, edges = Border(button), button = button,
+                                slot = slot, kind = kind, sourceID = id, command = command,
+                                macro = macro, body = body, label = label }
                         end
                     end
                     local function Add(spellID)
@@ -76,25 +104,35 @@ function addon.RebuildActionHints()
                     if read and Public(kind) and Public(id) and Public(subtype) then
                         if kind == "spell" then Add(id)
                         elseif kind == "macro" then
-                            if subtype == "spell" then Add(id) end
-                            local macro = id
+                            macro = id
                             if GetActionText then
                                 local textOK, text = pcall(GetActionText, slot)
                                 if textOK and Public(text) and type(text) == "string" then macro = text end
                             end
                             if GetMacroBody and Public(macro) then
-                                local bodyOK, body = pcall(GetMacroBody, macro)
-                                if bodyOK and Public(body) and type(body) == "string" then
+                                local bodyOK, value = pcall(GetMacroBody, macro)
+                                if bodyOK and Public(value) and type(value) == "string" then
+                                    body = value
+                                    local casts, simple = {}, true
                                     for line in body:gmatch("[^\r\n]+") do
                                         local cast = line:match("^%s*/cast%s+(.+)")
                                         if cast and not cast:find("[", 1, true) and not cast:find(";", 1, true) then
                                             local name = names[cast:match("^%s*!?(.-)%s*$"):lower()]
                                             local info = name and addon.GetLearnedSpell(name)
-                                            if info then Add(info.spellID) end
+                                            if info then casts[#casts + 1] = {name = name, id = info.spellID} end
+                                            if not info then simple = false end
+                                        elseif line:match("^%s*/cast") or line:match("^%s*/click") then
+                                            simple = false
                                         end
                                     end
+                                    if simple and #casts == 2 and casts[1].name == "Judgement" and casts[2].name == "Holy Strike" then
+                                        label = "Holy Strike macro"
+                                    end
+                                    if subtype == "spell" then Add(id) end
+                                    for _, cast in ipairs(casts) do Add(cast.id) end
                                 end
                             end
+                            if not body and subtype == "spell" then Add(id) end
                         end
                     end
                 end
@@ -116,5 +154,5 @@ function addon.ShowActionHint(spellID, state)
             edge:Show()
         end
     end
-    return action.key
+    return action.key, action.label
 end

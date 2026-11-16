@@ -22,6 +22,7 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.9.0 | Decisão dinâmica Now/Wait/Check por cooldown, usabilidade e alcance públicos; inclui correção da 0.8.2; instalação e validação real pendentes |
 | 0.9.1 | Corrige leitura de prontidão usando isEnabled/isActive públicos quando os tempos estão protegidos; instalação e validação real pendentes |
 | 0.10.0 | Motor unificado com memória de casts/selos, confiança estimada, pausa durante casts, segunda opção pronta, tecla e destaque em barras Blizzard/macros simples; instalação e validação real pendentes |
+| 0.10.1 | Identifica o macro Judgement/Holy Strike como uma ação compartilhada, evita alternativa duplicada e preserva vínculos revalidados em combate; testes locais aprovados, instalação e validação real pendentes |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.
@@ -32,6 +33,7 @@ Em 15/11/2026, a primeira captura da 0.8.1 na build 70938 confirmou carregamento
 
 ## Validação pendente
 
+- Conferir a 0.10.1: título Holy Strike macro, tecla persistente após casts e indicação de espera após Judgement lançado pelo macro.
 - Conferir cooldowns, mana, ranks e persistência de configurações na build 70938.
 - Conferir o aviso de selo e a abertura de Crusader com o painel fechado.
 - Conferir atribuições de bênção/aura, buffs recebidos de outro jogador e avisos de preparação fora de combate.
@@ -56,6 +58,8 @@ A captura seguinte confirmou a 0.9.0 carregada: 182 registros, 21 casts, nenhuma
 Em 16/11/2026, a [análise do Sonah 1.2.3 instalado](analise-sonah.md) confirmou um motor próprio com histórico de casts e estimativas de auras/selos, além das leituras públicas e da apresentação por tecla/brilho. Isso identifica uma direção para ampliar a assistência: separar estado observado, estimado e desconhecido. A inspeção foi estática e não modificou o Sonah nem implementou esse modelo no My Paladin.
 
 O [roteiro de diagnóstico](diagnostico.md) reúne os passos de validação e os limites do relatório.
+
+Na sessão `1794833942-7` da 0.10.0, na build 70938, os logs confirmam Judgement seguido por cooldown (por exemplo, cast #58 e leitura #61). Não há evidência nesse trecho de que o cast tenha sido ignorado. Também foram registradas invalidações completas de bindings durante combate, seguidas por `action_binding/unbound`. A 0.10.1 reproduz a perda do vínculo em teste e a corrige com revalidação, além de apresentar as duas habilidades como o macro já usado pelo jogador. O teste integrado do HUD passa por cast, espera, notificação de barra e nova prontidão. Isso não substitui a validação visual da nova versão no cliente.
 
 ## 1.0 — Estabilização
 

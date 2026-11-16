@@ -20,7 +20,7 @@ function button:CreateTexture()
     return edge
 end
 ActionButton2 = button
-function GetActionInfo(slot) assert(not combat and slot == 2); return "macro", 2, "spell" end
+function GetActionInfo(slot) assert(slot == 2); return "macro", 2, "spell" end
 function GetActionText() return "Holy Strike Macro" end
 function GetMacroBody(name) assert(name == "Holy Strike Macro"); return macro end
 function GetBindingKey(command) assert(command == "ACTIONBUTTON2"); return "2" end
@@ -35,16 +35,36 @@ for _, edge in ipairs(edges) do assert(edge.shown and edge.color[1] == 1) end
 addon.ShowActionHint(2, "wait")
 for _, edge in ipairs(edges) do assert(not edge.shown) end
 addon.RebuildActionHints()
-assert(addon.ShowActionHint(1, "ready") == nil, "Action bar changes in combat must discard stale bindings")
+assert(addon.ShowActionHint(1, "ready") == "2", "An unchanged macro must keep its binding after combat action-bar notifications")
+local key, label = addon.ShowActionHint(1, "ready")
+assert(key == "2" and label == "Holy Strike macro", "Judgement must direct the player to the existing Holy Strike macro")
+local _, strikeLabel = addon.ShowActionHint(2, "ready")
+assert(strikeLabel == label, "Both spells must identify the same macro action")
+GetActionInfo = function() return "macro", 1, "spell" end
+addon.RebuildActionHints()
+assert(addon.ShowActionHint(1, "ready") == "2", "A macro's displayed spell can change without changing its body")
+GetActionInfo = function() return "macro", secret, "spell" end
+addon.RebuildActionHints()
+assert(addon.ShowActionHint(1, "ready") == "2", "Public macro identity/body can validate the mapping without reading its displayed spell ID")
+macro = "/cast Holy Strike"
+addon.RebuildActionHints()
+assert(addon.ShowActionHint(1, "ready") == nil, "Changed macros must discard stale bindings during combat")
 combat = false
+GetActionInfo = function() return "macro", 2, "spell" end
 macro = "/cast [mod:shift] Judgement; Holy Strike"
 addon.RebuildActionHints()
 assert(addon.ShowActionHint(1, "ready") == nil, "Never guess which conditional macro branch the player will trigger")
-assert(addon.ShowActionHint(2, "ready") == "2", "The displayed spell still maps to its native button")
+key, label = addon.ShowActionHint(2, "ready")
+assert(key == "2" and label == nil, "The displayed spell maps to its button without assuming both conditional casts")
 C_Spell = {GetSpellName = function(id) assert(id == 22); return "Holy Strike" end}
 GetActionInfo = function() return "spell", 22 end
 addon.RebuildActionHints()
 assert(addon.ShowActionHint(2, "ready") == "2", "An action's base/rank ID must map to the learned spell by public name")
+combat = true
+GetActionInfo = function() return "spell", secret end
+addon.RebuildActionHints()
+assert(addon.ShowActionHint(2, "ready") == nil, "Opaque action data must invalidate the cached binding safely")
+combat = false
 GetActionInfo = function() return "spell", secret end
 addon.RebuildActionHints()
 assert(addon.ShowActionHint(2, "ready") == nil)

@@ -148,19 +148,24 @@ local function UpdateCombatHint()
         return
     end
     combatHint.icon:SetTexture(info.iconID)
+    local key, actionLabel = addon.ShowActionHint(info.spellID, state)
     local prefix = state == "ready" and "Now: " or state == "estimated" and "Estimate: "
         or state == "wait" and "Wait: " or state == "casting" and "Casting: " or "Check: "
-    hintTitle:SetText(prefix .. name)
+    hintTitle:SetText(prefix .. (actionLabel or name))
     if state == "ready" then hintTitle:SetTextColor(0.4, 1, 0.4)
     elseif state == "estimated" then hintTitle:SetTextColor(1, 0.7, 0.3)
     else hintTitle:SetTextColor(0.7, 0.7, 0.7) end
-    local key = addon.ShowActionHint(info.spellID, state)
+    if actionLabel then
+        help = name .. " | " .. help .. (state == "ready" and " | Use your Holy Strike macro"
+            or " | Included in your Holy Strike macro")
+    end
     hintKey:SetText(key or "")
     addon.TraceState("action_binding", key and "available" or "unbound", {spell = info.spellID})
     local alternative, alternativeName, _, _, alternativeState
     if state == "ready" then
         alternative, alternativeName, _, _, alternativeState = addon.GetCombatAction(info.spellID)
     end
+    if actionLabel and (alternativeName == "Judgement" or alternativeName == "Holy Strike") then alternative = nil end
     hintAlternative:SetText(alternative and alternativeState == "ready" and "Also ready: " .. alternativeName or "")
     local duration = C_Spell.GetSpellCooldownDuration and C_Spell.GetSpellCooldownDuration(info.spellID)
     addon.TraceState("api_cooldown", C_Spell.GetSpellCooldownDuration and hintCooldown.SetCooldownFromDurationObject

@@ -722,6 +722,34 @@ assert(not combatHint:IsShown(), "A secret cast ID must not be used to invent a 
 events.scripts.OnEvent(events, "UNIT_SPELLCAST_STOP", "player", secret, secret)
 GetTime = clockBeforeEstimate
 restrictedBuffs, activeBuffs = false, {["Seal of Righteousness"] = true}
+-- Replay the player's macro through the real HUD and cast/action-bar event handlers.
+combat = false
+ActionButton2 = CreateFrame("Button", nil, UIParent)
+ActionButton2.action = 2
+GetActionInfo = function() return "macro", known["Holy Strike"], "spell" end
+GetActionText = function() return "Holy Strike Macro" end
+GetMacroBody = function() return "#showtooltip Holy Strike\n/targetenemy [noharm][dead]\n/startattack\n/cast Judgement\n/cast Holy Strike" end
+GetBindingKey = function() return "2" end
+Emit("PLAYER_REGEN_ENABLED")
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
+assert(FindText("Now: Holy Strike macro") and not FindText("Also ready: Holy Strike"))
+cooldowns[known.Judgement], cooldowns[known["Holy Strike"]] = 8, 10
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", secret, known.Judgement)
+assert(FindText("Wait: Holy Strike macro") and not FindText("Now: Judgement"), "A confirmed macro cast must release the Judgement recommendation")
+Emit("ACTIONBAR_SLOT_CHANGED", 2)
+assert(FindText("Wait: Holy Strike macro") and addon.ShowActionHint(known.Judgement, "wait") == "2",
+    "Macro notifications during combat must retain a verified binding")
+GetTime = function() return 50 end
+combatHint.scripts.OnUpdate(combatHint, 0.1)
+assert(FindText("Now: Holy Strike macro"), "Recommend the same macro again only after a spell becomes ready")
+GetTime = clockBeforeEstimate
+cooldowns[known.Judgement], cooldowns[known["Holy Strike"]] = 0, 0
+ActionButton2, GetActionInfo, GetActionText, GetMacroBody, GetBindingKey = nil, nil, nil, nil, nil
+combat = false
+Emit("PLAYER_REGEN_ENABLED")
+combat = true
+Emit("PLAYER_REGEN_DISABLED")
 Emit("PLAYER_DEAD")
 Emit("UNIT_AURA", secret)
 assert(not combatHint:IsShown() and not sealAlert:IsShown(), "Death must keep both HUDs hidden across following aura updates")
