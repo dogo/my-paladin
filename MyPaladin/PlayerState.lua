@@ -242,8 +242,9 @@ end
 function addon.CountNearbyEnemies()
     local strike = addon.GetLearnedSpell("Holy Strike")
     if not strike or not C_Spell or not C_Spell.IsSpellInRange or not UnitCanAttack or not UnitIsDeadOrGhost then return nil end
-    local count = 0
+    local count, tracked = 0, 0
     for unit in pairs(plates) do
+        tracked = tracked + 1
         local ok, hostile, dead, inRange = pcall(function()
             return UnitCanAttack("player", unit), UnitIsDeadOrGhost(unit), C_Spell.IsSpellInRange(strike.spellID, unit)
         end)
@@ -252,17 +253,17 @@ function addon.CountNearbyEnemies()
             count = count + 1
         end
     end
-    return count
+    return count, tracked
 end
 
 function addon.IsAreaContext()
     local mode = addon.GetSettings().combatMode
     if mode ~= "auto" then return mode == "aoe" end
-    local count = addon.CountNearbyEnemies()
+    local count, tracked = addon.CountNearbyEnemies()
     -- Hold AoE for 2s so one enemy stepping out of melee does not flip the hint back and forth.
     if count and count >= AOE_ENEMIES then aoeUntil = GetTime() + 2 end
     local area = GetTime() < aoeUntil
-    if InCombatLockdown() and addon.TraceState then addon.TraceState("auto_context", area and "aoe" or "single", { count = count }) end
+    if InCombatLockdown() and addon.TraceState then addon.TraceState("auto_context", area and "aoe" or "single", { count = count, detail = "plates=" .. tostring(tracked) }) end
     return area
 end
 

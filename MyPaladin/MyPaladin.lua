@@ -162,6 +162,8 @@ local function Backing(frame, bottom)
 end
 
 local function UpdateCombatHint()
+    -- Evaluate Auto every update so its trace covers the whole fight, not only when Consecration is considered.
+    if InCombatLockdown() and addon.GetSettings().combatMode == "auto" then addon.IsAreaContext() end
     if moving then
         combatHint.icon:SetTexture(134400)
         hintTitle:SetText("Combat hint")
