@@ -138,6 +138,14 @@ local function UpdateSealAlert(status, activeSeal)
     addon.TraceState("seal_hud", status, { spell = recommendedSealInfo.spellID, detail = recommendedSeal })
 end
 
+-- Dark backing keeps HUD text readable over bright scenery.
+local function Backing(frame, bottom)
+    local background = frame:CreateTexture(nil, "BACKGROUND")
+    background:SetPoint("TOPLEFT", -6, 6)
+    background:SetPoint("BOTTOMRIGHT", 6, bottom)
+    background:SetColorTexture(0, 0, 0, 0.6)
+end
+
 local function UpdateCombatHint()
     local info, name, help, uncertain, state = addon.GetCombatAction()
     if not info then
@@ -544,6 +552,7 @@ local function CreatePanel()
     sealAlert = CreateFrame("Frame", "MyPaladinSealAlert", UIParent)
     sealAlert:Hide()
     sealAlert:SetSize(300, 64)
+    Backing(sealAlert, -6)
     sealAlert:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
     sealAlert:SetFrameStrata("HIGH")
     sealAlert:SetClampedToScreen(true)
@@ -574,11 +583,7 @@ local function CreatePanel()
         elapsedHint = elapsedHint + elapsed
         if elapsedHint >= 0.1 then elapsedHint = 0; UpdateCombatHint() end
     end)
-    -- Dark backing keeps the text readable over bright scenery.
-    local hintBackground = combatHint:CreateTexture(nil, "BACKGROUND")
-    hintBackground:SetPoint("TOPLEFT", -6, 6)
-    hintBackground:SetPoint("BOTTOMRIGHT", 6, 14)
-    hintBackground:SetColorTexture(0, 0, 0, 0.6)
+    Backing(combatHint, 14)
     combatHint.icon = combatHint:CreateTexture(nil, "ARTWORK")
     combatHint.icon:SetSize(64, 64)
     combatHint.icon:SetPoint("TOPLEFT")
