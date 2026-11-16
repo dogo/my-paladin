@@ -84,14 +84,18 @@ end
 
 -- Positive evidence only: a seal missing from the bars may simply not be tracked there.
 -- Returns presence and, when the item tells it, which seal.
+-- The third return explains a miss for diagnostics: no_map, viewer_hidden, item_absent or item_inactive.
 function ViewerSeal()
-    if not next(viewerSeals) then return nil end
+    if not next(viewerSeals) then return nil, nil, "no_map" end
+    local reason = "viewer_hidden"
     for _, viewerName in ipairs(AURA_VIEWERS) do
         local viewer = _G[viewerName]
         if viewer and viewer.IsShown and viewer.GetChildren and viewer:IsShown() then
+            if reason == "viewer_hidden" then reason = "item_absent" end
             for _, item in ipairs({ viewer:GetChildren() }) do
                 local cooldownID = rawget(item, "cooldownID")
                 local members = Public(cooldownID) and viewerSeals[cooldownID]
+                if members then reason = "item_inactive" end
                 if members and item:IsShown() then
                     local aura = rawget(item, "auraInstanceID")
                     -- A secret ID is only tested for existence, never compared or read.
@@ -108,6 +112,7 @@ function ViewerSeal()
             end
         end
     end
+    return nil, nil, reason
 end
 
 local function CastName(spellID)
@@ -194,9 +199,9 @@ function addon.GetSealEvidence()
         seal = nil
         return "missing", nil, "observed"
     end
-    local shown, shownName = ViewerSeal()
+    local shown, shownName, miss = ViewerSeal()
     if addon.TraceState then
-        addon.TraceState("seal_viewer", shown and (shownName and "active" or "active_unnamed") or "not_shown",
+        addon.TraceState("seal_viewer", shown and (shownName and "active" or "active_unnamed") or miss,
             { detail = shownName or "Cooldown Manager" })
     end
     if shown then
