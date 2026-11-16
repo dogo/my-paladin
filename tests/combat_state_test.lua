@@ -85,4 +85,17 @@ local reloaded = setmetatable({}, {__index = addon})
 assert(loadfile("MyPaladin/CombatState.lua"))("MyPaladin", reloaded)
 raw = "restricted"
 assert(reloaded.GetSealEvidence() == "unknown")
+-- GCD-only cooldown memory: ready and not cast since, for at most 1.6s.
+now = 200
+addon.NoteSpellReady("Consecration")
+now = 201
+assert(addon.IsGcdOnlyCooldown("Consecration"))
+Cast("Consecration")
+assert(not addon.IsGcdOnlyCooldown("Consecration"), "A cast starts the real cooldown")
+addon.NoteSpellReady("Consecration")
+now = 202.7
+assert(not addon.IsGcdOnlyCooldown("Consecration"), "Longer than any GCD means a real cooldown or a missed cast")
+addon.NoteSpellReady("Judgement")
+addon.ResetCombatEvidence()
+assert(not addon.IsGcdOnlyCooldown("Judgement"))
 print("OK: estimated seals, replacement, expiry, public reconciliation, opener target scope and cast holds")

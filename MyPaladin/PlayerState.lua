@@ -399,11 +399,18 @@ function addon.GetCombatAction(exclude)
         end
         if info and info.spellID ~= exclude and eligible then
             local state, detail, remaining = addon.GetSpellReadiness(info, name, name == "Consecration")
-            if state == "ready" then return info, name, "Use now | " .. detail, false, "ready" end
+            if state == "ready" then
+                if addon.NoteSpellReady then addon.NoteSpellReady(name) end
+                return info, name, "Use now | " .. detail, false, "ready"
+            end
             local candidate = { info, name, detail, true, "check" }
-            if state == "cooldown" and remaining then
+            if state == "cooldown" and not remaining and addon.IsGcdOnlyCooldown and addon.IsGcdOnlyCooldown(name) then
+                -- Keep the next action through the GCD instead of jumping to a spell on its real cooldown.
+                candidate[3], candidate[4], candidate[5], candidate.gcd = "Ready after the global cooldown", false, "wait", true
+                if not (waiting and waiting.gcd) then waiting = candidate end
+            elseif state == "cooldown" and remaining then
                 candidate[3], candidate[4], candidate[5], candidate[6] = string.format("Ready in %.1fs", remaining), false, "wait", remaining
-                if not waiting or not waiting[6] or remaining < waiting[6] then waiting = candidate end
+                if not waiting or (not waiting.gcd and (not waiting[6] or remaining < waiting[6])) then waiting = candidate end
             elseif state == "cooldown" then
                 candidate[4], candidate[5] = false, "wait"
                 waiting = waiting or candidate

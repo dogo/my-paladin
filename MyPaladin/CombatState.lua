@@ -1,5 +1,6 @@
 local _, addon = ...
 local seal, casting, judged
+local readyAt = {}
 local targetEpoch, spells, learnedNames = 0, {}, {}
 local sealNames = {}
 for _, name in ipairs(addon.buffGroups[1].spells) do sealNames[name] = true end
@@ -10,6 +11,7 @@ end
 
 function addon.ResetCombatEvidence()
     seal, casting, judged = nil, nil, nil
+    readyAt = {}
     targetEpoch = targetEpoch + 1
 end
 
@@ -43,6 +45,7 @@ end
 function addon.RecordCombatCast(spellID)
     local name = CastName(spellID)
     if not name then return end
+    readyAt[name] = nil
     if sealNames[name] then
         seal = { name = name, expires = GetTime() + 30, castAt = GetTime() }
         addon.Trace("estimate", "seal_cast", { spell = spellID, detail = name .. "; estimated 30s duration" })
@@ -50,6 +53,16 @@ function addon.RecordCombatCast(spellID)
         judged = { epoch = targetEpoch, expires = GetTime() + 40 }
         addon.Trace("estimate", "crusader_judged", { detail = "Cast observed; debuff application not confirmed" })
     end
+end
+
+function addon.NoteSpellReady(name)
+    readyAt[name] = GetTime()
+end
+
+-- Ready moments ago and not cast since: an active cooldown is only the GCD (max 1.5s).
+-- The time cap covers a cast event we failed to observe.
+function addon.IsGcdOnlyCooldown(name)
+    return readyAt[name] ~= nil and GetTime() - readyAt[name] <= 1.6
 end
 
 function addon.CombatTargetChanged()

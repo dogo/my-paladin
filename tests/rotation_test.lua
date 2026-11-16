@@ -88,6 +88,22 @@ end
 cds[1] = {startTime = 100, duration = 8, modRate = 2, isEnabled = true}
 local state, _, remaining = addon.GetSpellReadiness(learned.Judgement, "Judgement")
 assert(state == "cooldown" and remaining == 4)
+-- During the GCD, the spell that was ready stays as the next action instead of Judgement on its real cooldown.
+local gcdOnly = {}
+addon.NoteSpellReady = function(name) gcdOnly[name] = true end
+addon.IsGcdOnlyCooldown = function(name) return gcdOnly[name] == true end
+addon.GetSettings().combatMode = "aoe"
+cds[1] = {isEnabled = true, isActive = true, startTime = secret, duration = secret, modRate = secret}
+cds[3] = nil
+Action("Consecration", "ready")
+cds[3] = {isEnabled = true, isActive = true, startTime = secret, duration = secret, modRate = secret}
+cds[2] = {isEnabled = true, isActive = true, startTime = secret, duration = secret, modRate = secret}
+Action("Consecration", "wait", "global cooldown")
+gcdOnly = {}
+Action("Judgement", "wait")
+addon.GetSettings().combatMode = "single"
+addon.NoteSpellReady, addon.IsGcdOnlyCooldown = nil, nil
+cds[1], cds[2], cds[3] = nil, nil, nil
 learned["Seal of Righteousness"] = {spellID = 4}
 addon.GetSealAction = function()
     return learned["Seal of Righteousness"], "Seal of Righteousness", "Estimated seal expired; refresh it", "estimated", true
