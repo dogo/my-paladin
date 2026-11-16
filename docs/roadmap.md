@@ -24,6 +24,9 @@ Implementado significa código disponível e testes locais aprovados. Instalaç�
 | 0.10.0 | Motor unificado com memória de casts/selos, confiança estimada, pausa durante casts, segunda opção pronta, tecla e destaque em barras Blizzard/macros simples; instalação e validação real pendentes |
 | 0.10.1 | Identifica o macro Judgement/Holy Strike como uma ação compartilhada, evita alternativa duplicada e preserva vínculos revalidados em combate; testes locais aprovados; título do macro, tecla persistente e espera após Judgement confirmados pelo jogador em 16/11/2026 |
 | 0.10.2 | Mantém o aviso de renovação do selo durante o GCD, em vez de alternar com Check cinza; botão de contexto mostra `Mode: Single`/`Mode: AoE`; testes locais aprovados, validação real pendente |
+| 0.10.3 | Destaque do botão passa a pulsar (borda com brilho aditivo e animação própria), sem reiniciar a cada atualização do HUD; validação visual pendente |
+| 0.10.4 | Brilho com a arte de proc da Blizzard (`UI-HUD-ActionBar-Proc-Loop-Flipbook`) num frame próprio, após o jogador achar a borda pulsante discreta; borda pulsante fica como alternativa sem o atlas; validação visual pendente |
+| 0.10.5 | Indicação estável durante o GCD com tempos protegidos (memória de habilidade pronta e não lançada, até 1,6s); fundo escuro atrás do texto da indicação; validação real pendente |
 | Monitor | Consulta dos oito guias, relatório de diferenças e aceitação manual das revisões |
 
 Os ecos só são orientados com Unsealed Wrath e os dois selos aprendidos, Command como selo base recomendado e dados acessíveis. Não há troca automática de selos nem lançamento de habilidades.
@@ -64,6 +67,10 @@ Na sessão `1794833942-7` da 0.10.0, na build 70938, os logs confirmam Judgement
 Em 16/11/2026, o jogador confirmou no cliente a 0.10.1: título Holy Strike macro, tecla persistente após casts e indicação de espera após Judgement lançado pelo macro. A confirmação foi informada pelo jogador, sem captura de diagnóstico analisada.
 
 A captura `1794834821-8` (0.10.1, apesar do texto `addon=0.10.0` deixado no `Diagnostics.lua` instalado) confirma nos registros: 161 vínculos de tecla disponíveis e nenhum perdido, 19 revalidações em combate, Wait após 28 de 41 Judgements, alternância entre Judgement, Consecration e Holy Strike, renovação estimada aos 30s e HUD de selo oculto em combate. Também mostrou o aviso de renovação alternando com Check durante o GCD, corrigido na 0.10.2. O jogador usava Crusader como selo principal por engano e ficou em AoE porque o botão `Single` parecia uma ação; o botão passou a mostrar `Mode: ...`. O destaque visual do botão não é comprovado pelos registros.
+
+Na sessão `1794850595-12` (0.10.3), a abertura Crusader foi seguida em combate com o debuff restrito: Long-fight opener → Judge your tracked Crusader seal → Crusader judged; application estimated → Seal of Righteousness, tudo como estimado. O jogador confirmou a sequência no jogo.
+
+Na sessão `1794851406-15` (0.10.4, AoE), a ordem seguiu o guia: Judgement → Consecration → Holy Strike. A indicação alternava `Now: Consecration` ↔ `Wait: Judgement` a cada GCD porque os tempos protegidos impedem saber qual cooldown termina antes; corrigido na 0.10.5. A mana ficou protegida a sessão inteira, então o limite de mana não restringiu Consecration: o guia pede Consecration em AoE "if mana permits" e manda pará-la quando mana virar problema, mas hoje só `IsSpellUsable` impede o cast sem mana. Sem leitura de mana, falta um sinal confiável para essa reserva.
 
 ## 1.0 — Estabilização
 
