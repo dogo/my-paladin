@@ -249,7 +249,7 @@ function addon.GetSealAction()
     local name, reason
     if status == "missing" then
         name, reason = recommended, confidence == "estimated" and "Estimated seal expired; refresh it" or "No active seal detected"
-    elseif addon.GetSettings().crusaderOpener and not addon.GetLearnedSpell("Holy Shock") then
+    elseif addon.GetSettings().crusaderOpener then
         local step = addon.GetCrusaderStep(status, active)
         if step == "apply" then name, reason = "Seal of the Crusader", "Long-fight opener"
         elseif step == "judge" then name, reason = "Judgement", "Judge Crusader before switching seal"

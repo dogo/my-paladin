@@ -113,7 +113,7 @@ Com um alvo hostil, vivo e visível, o aviso acompanha esta sequência:
 
 A etapa de troca só aparece após detectar seu **Judgement of the Crusader** no alvo. Ao aplicar um selo de dano, o aviso desaparece; trocar de alvo reavalia a abertura. Se o debuff deixar de ser detectado, a orientação volta à etapa necessária. Judgement não consome seu selo no Forever.
 
-É necessário ter Crusader e Judgement aprendidos. A abertura não é sugerida quando Holy Shock está aprendido. O critério segue a [rotação de Retribution do guia de Forever](https://www.wowhead.com/forever/guide/classes/paladin/retribution/rotation-cooldowns-pve-dps).
+É necessário ter Crusader e Judgement aprendidos. Com Holy Shock aprendido (Shockadin), a abertura também vale e a troca final vai para Righteousness. O critério segue a [rotação de Retribution do guia de Forever](https://www.wowhead.com/forever/guide/classes/paladin/retribution/rotation-cooldowns-pve-dps).
 
 Dados restritos mostram **Check Crusader** em cinza. O addon não presume sucesso pelo aperto do macro nem pelo cooldown; cooldown, alcance e mana ainda precisam permitir a ação indicada.
 

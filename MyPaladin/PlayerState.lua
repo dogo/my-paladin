@@ -162,7 +162,8 @@ function addon.GetCrusaderStep(sealStatus, activeSeal)
     if not addon.GetSettings().crusaderOpener then return nil end
     local crusader = addon.GetLearnedSpell("Seal of the Crusader")
     local judgement = addon.GetLearnedSpell("Judgement")
-    if not crusader or not judgement or addon.GetLearnedSpell("Holy Shock") then return nil end
+    -- Guide: every priority (Shockadin too) opens with Crusader on targets that survive a few seconds.
+    if not crusader or not judgement then return nil end
     local target = TargetStatus()
     if target == "none" then return nil end
     if target ~= "valid" then return target, crusader end

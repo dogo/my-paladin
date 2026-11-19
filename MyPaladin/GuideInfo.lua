@@ -1,2 +1,2 @@
 local _, addon = ...
-addon.guideInfo = { reviewedOn = "2026-11-14", patch = "1.60.1" }
+addon.guideInfo = { reviewedOn = "2026-11-19", patch = "1.60.1" }

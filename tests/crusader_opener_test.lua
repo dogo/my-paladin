@@ -74,7 +74,7 @@ learned.Judgement = nil
 assert(addon.GetCrusaderStep("missing") == nil)
 learned.Judgement = { spellID = 2, iconID = 12 }
 learned["Holy Shock"] = { spellID = 3, iconID = 13 }
-assert(addon.GetCrusaderStep("missing") == nil, "This opener is scoped to Retribution, not the Shockadin priority")
+assert(addon.GetCrusaderStep("missing") ~= nil, "The guide opens the Shockadin priority with Crusader too")
 learned["Holy Shock"], learned["Seal of the Crusader"] = nil, nil
 assert(addon.GetCrusaderStep("missing") == nil)
 settings.crusaderOpener = false
